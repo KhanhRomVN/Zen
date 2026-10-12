@@ -14,6 +14,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { splitModelAndEffort } from "../components/MessageInput/EffortDropdown";
 
 // ─── Storage helpers ──────────────────────────────────────────────────────
 
@@ -52,8 +53,14 @@ const saveToolFormat = (
 
 export function useToolFormatSettings(
   providerId: string | null | undefined,
-  modelId: string | null | undefined,
+  rawModelId: string | null | undefined,
 ) {
+  // Effort nằm trong model id (<base>-<effort>) → bỏ suffix để đổi effort
+  // không làm đổi toolFormat (xml/json) của model.
+  const modelId = rawModelId
+    ? splitModelAndEffort(rawModelId).base
+    : rawModelId;
+
   // Khởi tạo từ preset của model (nếu có) hoặc default 'xml'
   const [toolFormat, setToolFormatState] = useState<"xml" | "json">(() => {
     if (providerId && modelId) {

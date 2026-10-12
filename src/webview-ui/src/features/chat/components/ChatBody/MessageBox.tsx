@@ -83,6 +83,18 @@ export interface MessageBoxProps {
    * View-only mode: ẩn revert/edit icon trong UserMessageBox và ResponseMetadataBar.
    */
   isViewOnly?: boolean;
+  /** Dangerous command warnings keyed by actionId */
+  dangerousCommands?: Record<
+    string,
+    {
+      actionId: string;
+      commandText: string;
+      folderPath?: string;
+      reason: string;
+    }
+  >;
+  onProceedDangerousCommand?: (actionId: string) => void;
+  onCancelDangerousCommand?: (actionId: string) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -264,6 +276,9 @@ const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
   }
 
   // Full comparison when not streaming
+  const sameDangerousCommands =
+    prevProps.dangerousCommands === nextProps.dangerousCommands;
+
   return (
     prevProps.message.id === nextProps.message.id &&
     prevProps.message.content === nextProps.message.content &&
@@ -274,7 +289,8 @@ const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
     prevProps.isGenerating === nextProps.isGenerating &&
     prevProps.toolOutputs === nextProps.toolOutputs &&
     prevProps.canRegenerate === nextProps.canRegenerate &&
-    prevProps.isViewOnly === nextProps.isViewOnly
+    prevProps.isViewOnly === nextProps.isViewOnly &&
+    sameDangerousCommands
   );
 });
 

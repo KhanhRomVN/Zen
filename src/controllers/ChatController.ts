@@ -59,6 +59,7 @@ import { SkillWorkspaceStateHandler } from "../handlers/tool/SkillWorkspaceState
 import { RuleHandler } from "../handlers/tool/RuleHandler";
 import { MemoryHandler } from "../handlers/tool/MemoryHandler";
 import { WorkspaceZipHandler } from "../handlers/system/WorkspaceZipHandler";
+import { WorkbenchLayoutHandler } from "../handlers/system/WorkbenchLayoutHandler";
 
 // ── Managers ──
 import { CheckpointManager } from "../managers/CheckpointManager";
@@ -111,6 +112,7 @@ export class ChatController {
   private ruleHandler: RuleHandler;
   private memoryHandler: MemoryHandler;
   private workspaceZipHandler: WorkspaceZipHandler;
+  private workbenchLayoutHandler: WorkbenchLayoutHandler;
 
   constructor(
     private storageManager: GlobalStorageManager | undefined,
@@ -167,6 +169,7 @@ export class ChatController {
     this.ruleHandler = new RuleHandler();
     this.memoryHandler = new MemoryHandler();
     this.workspaceZipHandler = new WorkspaceZipHandler();
+    this.workbenchLayoutHandler = new WorkbenchLayoutHandler();
   }
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
@@ -251,6 +254,17 @@ export class ChatController {
           break;
         case "exportAccounts":
           await this.accountImportExportHandler.handleExportAccounts(message);
+          break;
+        case "toggleMaximizedSidebar":
+          await this.workbenchLayoutHandler.handleToggleMaximizedSidebar();
+          break;
+        case "setHistorySidebarVisible":
+          // Webview báo sidebar lịch sử đang hiện → ẩn icon History trên title bar
+          await vscode.commands.executeCommand(
+            "setContext",
+            "zen.historySidebarVisible",
+            !!message.visible,
+          );
           break;
 
         // Conversation Management

@@ -75,7 +75,7 @@ interface ChatFooterProps {
   /** View-only: conversation không thể tiếp tục (provider supports_session_cleanup hoặc no-auth) */
   isViewOnly?: boolean;
   /** Tool format cho conversation này */
-  conversationToolFormat?: 'xml' | 'json';
+  conversationToolFormat?: "xml" | "json";
   onConversationToolFormatToggle?: () => void;
   /** Timestamp (ms) lúc nhận xong response cuối — dùng để tính cooldown timer */
   lastResponseEndTime?: number | null;
@@ -565,92 +565,97 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
         onChange={handleExternalFileInputChange}
       />
 
-      <FilesPreviews
-        uploadedFiles={uploadedFiles}
-        attachedItems={attachedItems}
-        onRemoveFile={removeFile}
-        onRemoveAttachedItem={removeAttachedItem}
-        onOpenImage={onOpenImage}
-        onAttachedItemClick={(item) => {
-          const vscodeApi = (window as any).vscodeApi;
-          if (!vscodeApi) return;
-          if (item.type === "file") {
-            vscodeApi.postMessage({
-              command: "openFile",
-              path: item.path,
-            });
-          } else if (item.type === "text-snippet") {
-            // Show text snippet content in a modal or copy to clipboard
-            // For now, just log - could open in editor or show preview
-          }
-        }}
-      />
-
-      <div style={{ position: "relative" }}>
-        <MessageInput
-          isViewOnly={isViewOnly}
-          message={message}
-          setMessage={setMessage}
-          isHistoryMode={isHistoryMode}
+      <div
+        className="chat-footer-inner"
+        style={{ width: "100%", maxWidth: 900, margin: "0 auto" }}
+      >
+        <FilesPreviews
           uploadedFiles={uploadedFiles}
           attachedItems={attachedItems}
-          textareaRef={textareaRef}
-          handleTextareaChange={handleTextareaChange}
-          handleKeyDown={handleKeyDown}
-          handlePaste={handlePaste}
-          handleDragOver={handleDragOver}
-          handleDrop={handleDrop}
-          handleFileSelect={handleFileSelect}
-          fileInputRef={fileInputRef}
-          onOpenProjectStructure={onOpenProjectStructure}
-          showChangesDropdown={showChangesDropdown}
-          setShowChangesDropdown={setShowChangesDropdown}
-          messages={messages}
-          handleSend={handleSend}
-          hasProjectContext={hasProjectContext}
-          onOpenProjectContext={onOpenProjectContext}
-          folderPath={folderPath}
-          isConversationStarted={isConversationStarted}
-          currentModel={currentModel}
-          setCurrentModel={setCurrentModel}
-          currentAccount={currentAccount}
-          setCurrentAccount={setCurrentAccount}
-          isProcessing={isProcessing}
-          isStreaming={isStreaming}
-          onStopGeneration={onStopGeneration}
-          showBrowserWarning={showBrowserWarning}
-          isLaunchingBrowser={isLaunchingBrowser}
-          onLaunchBrowserSession={onLaunchBrowserSession}
-          onGitPullRequest={onGitPullRequest}
-          isGitLoading={gitLoading}
-          isGitStatusVisible={isGitStatusVisible}
-          gitStatus={{
-            items: Array.from(
-              { length: conversationFileStats.totalFiles },
-              (_, i) => ({
-                path: `file-${i}`,
-                additions: 0,
-                deletions: 0,
-              }),
-            ),
-          }}
-          conversationFileStats={loadedConversationFileStats ?? undefined}
-          onOpenGitStatus={onOpenGitStatus}
-          onReviewClick={() => {}}
-          responseRange={responseRange}
-          responseRanges={responseRanges}
-          onRevertConversation={onRevertConversation}
-          onModelSwitch={onModelSwitch}
-          autoScrollPaused={autoScrollPaused}
-          scrollToBottom={scrollToBottom}
-          enableViewOnlyMode={true}
-          onSelectRule={onSelectRule}
+          onRemoveFile={removeFile}
           onRemoveAttachedItem={removeAttachedItem}
-          conversationToolFormat={conversationToolFormat}
-          onConversationToolFormatToggle={onConversationToolFormatToggle}
-          lastResponseEndTime={lastResponseEndTime}
-          requestCooldownMs={requestCooldownMs}
+          onOpenImage={onOpenImage}
+          onAttachedItemClick={(item) => {
+            const vscodeApi = (window as any).vscodeApi;
+            if (!vscodeApi) return;
+            if (item.type === "file") {
+              vscodeApi.postMessage({
+                command: "openFile",
+                path: item.path,
+              });
+            } else if (item.type === "text-snippet") {
+              // Show text snippet content in a modal or copy to clipboard
+              // For now, just log - could open in editor or show preview
+            }
+          }}
         />
+
+        <div style={{ position: "relative" }}>
+          <MessageInput
+            isViewOnly={isViewOnly}
+            message={message}
+            setMessage={setMessage}
+            isHistoryMode={isHistoryMode}
+            uploadedFiles={uploadedFiles}
+            attachedItems={attachedItems}
+            textareaRef={textareaRef}
+            handleTextareaChange={handleTextareaChange}
+            handleKeyDown={handleKeyDown}
+            handlePaste={handlePaste}
+            handleDragOver={handleDragOver}
+            handleDrop={handleDrop}
+            handleFileSelect={handleFileSelect}
+            fileInputRef={fileInputRef}
+            onOpenProjectStructure={onOpenProjectStructure}
+            showChangesDropdown={showChangesDropdown}
+            setShowChangesDropdown={setShowChangesDropdown}
+            messages={messages}
+            handleSend={handleSend}
+            hasProjectContext={hasProjectContext}
+            onOpenProjectContext={onOpenProjectContext}
+            folderPath={folderPath}
+            isConversationStarted={isConversationStarted}
+            currentModel={currentModel}
+            setCurrentModel={setCurrentModel}
+            currentAccount={currentAccount}
+            setCurrentAccount={setCurrentAccount}
+            isProcessing={isProcessing}
+            isStreaming={isStreaming}
+            onStopGeneration={onStopGeneration}
+            showBrowserWarning={showBrowserWarning}
+            isLaunchingBrowser={isLaunchingBrowser}
+            onLaunchBrowserSession={onLaunchBrowserSession}
+            onGitPullRequest={onGitPullRequest}
+            isGitLoading={gitLoading}
+            isGitStatusVisible={isGitStatusVisible}
+            gitStatus={{
+              items: Array.from(
+                { length: conversationFileStats.totalFiles },
+                (_, i) => ({
+                  path: `file-${i}`,
+                  additions: 0,
+                  deletions: 0,
+                }),
+              ),
+            }}
+            conversationFileStats={loadedConversationFileStats ?? undefined}
+            onOpenGitStatus={onOpenGitStatus}
+            onReviewClick={() => {}}
+            responseRange={responseRange}
+            responseRanges={responseRanges}
+            onRevertConversation={onRevertConversation}
+            onModelSwitch={onModelSwitch}
+            autoScrollPaused={autoScrollPaused}
+            scrollToBottom={scrollToBottom}
+            enableViewOnlyMode={true}
+            onSelectRule={onSelectRule}
+            onRemoveAttachedItem={removeAttachedItem}
+            conversationToolFormat={conversationToolFormat}
+            onConversationToolFormatToggle={onConversationToolFormatToggle}
+            lastResponseEndTime={lastResponseEndTime}
+            requestCooldownMs={requestCooldownMs}
+          />
+        </div>
       </div>
     </div>
   );

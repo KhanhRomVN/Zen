@@ -122,9 +122,6 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
 
   const scanStr = contentAfterThinking;
 
-  // Regex: match ```json ... ``` fenced blocks (non-greedy)
-  const fenceRegex = /```json\s*\n?([\s\S]*?)```|<git_status>([\s\S]*?)<\/git_status>/g;
-
   let lastIndex = 0;
 
   const pushMarkdown = (text: string) => {
@@ -133,29 +130,77 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
     result.contentBlocks.push({ type: 'markdown', content: trimmed });
   };
 
-  let match: RegExpExecArray | null;
-  while ((match = fenceRegex.exec(scanStr)) !== null) {
-    // Text before this block → markdown
-    const before = scanStr.slice(lastIndex, match.index);
-    pushMarkdown(before);
+  /**
+   * Balanced-fence scanner: find ```json ... ``` blocks while ignoring
+   * triple-backtick sequences that appear INSIDE JSON string values.
+   * Tracks in-string state (unescaped double-quote toggles) so that content
+   * like "cleaned.split('```')" does not prematurely close the fence.
+   */
+  const findNextJsonFence = (fromIdx: number): { openStart: number; bodyStart: number; bodyEnd: number; fenceEnd: number } | null => {
+    const OPEN = '```json';
+    const openIdx = scanStr.indexOf(OPEN, fromIdx);
+    if (openIdx === -1) return null;
 
-    const rawJson = match[0];
+    const nlAfterOpen = scanStr.indexOf('\n', openIdx);
+    const bodyStart = nlAfterOpen !== -1 ? nlAfterOpen + 1 : openIdx + OPEN.length;
 
-    // App-generated <git_status> block (not from the AI) → render as git_status tool
-    if (match[2] !== undefined) {
+    let inString = false;
+    let escape = false;
+    for (let i = bodyStart; i < scanStr.length; i++) {
+      const ch = scanStr[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\') { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (!inString && ch === '`' && scanStr.startsWith('```', i)) {
+        return { openStart: openIdx, bodyStart, bodyEnd: i, fenceEnd: i + 3 };
+      }
+    }
+    return null;
+  };
+
+  // Interleave handling of <git_status> pseudo-blocks with JSON fences by
+  // picking whichever appears earlier in the remaining scan window.
+  const GIT_STATUS_OPEN = '<git_status>';
+  const GIT_STATUS_CLOSE = '</git_status>';
+
+  while (lastIndex < scanStr.length) {
+    const fence = findNextJsonFence(lastIndex);
+    const gsOpen = scanStr.indexOf(GIT_STATUS_OPEN, lastIndex);
+    const gsClose = gsOpen !== -1 ? scanStr.indexOf(GIT_STATUS_CLOSE, gsOpen + GIT_STATUS_OPEN.length) : -1;
+    const hasValidGs = gsOpen !== -1 && gsClose !== -1;
+
+    // No more fences and no more git_status → flush tail as markdown
+    if (!fence && !hasValidGs) break;
+
+    // Decide which comes first
+    const useGitStatus = hasValidGs && (!fence || gsOpen < fence.openStart);
+
+    if (useGitStatus) {
+      const before = scanStr.slice(lastIndex, gsOpen);
+      pushMarkdown(before);
+
+      const inner = scanStr.slice(gsOpen + GIT_STATUS_OPEN.length, gsClose);
+      const rawXml = scanStr.slice(gsOpen, gsClose + GIT_STATUS_CLOSE.length);
       const gitAction = {
         type: 'git_status' as const,
-        params: parseGitStatus(match[2]),
-        rawXml: rawJson,
+        params: parseGitStatus(inner),
+        rawXml,
       };
       const gitActionIndex = result.actions.length;
       result.contentBlocks.push({ type: 'tool', action: gitAction, actionIndex: gitActionIndex });
       result.actions.push(gitAction);
-      lastIndex = match.index + rawJson.length;
+      lastIndex = gsClose + GIT_STATUS_CLOSE.length;
       continue;
     }
 
-    const jsonBody = match[1].trim();
+    if (!fence) break;
+
+    // Text before this fence → markdown
+    const before = scanStr.slice(lastIndex, fence.openStart);
+    pushMarkdown(before);
+
+    const rawJson = scanStr.slice(fence.openStart, fence.fenceEnd);
+    const jsonBody = scanStr.slice(fence.bodyStart, fence.bodyEnd).trim();
 
     // Try to parse as tool call
     let parsed: any = null;
@@ -164,7 +209,7 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
     } catch {
       // Not valid JSON — treat the whole fence as a code block
       result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
-      lastIndex = match.index + rawJson.length;
+      lastIndex = fence.fenceEnd;
       continue;
     }
 
@@ -174,7 +219,7 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
         type: 'conversation_title',
         content: parsed.params.title,
       });
-      lastIndex = match.index + rawJson.length;
+      lastIndex = fence.fenceEnd;
       continue;
     }
 
@@ -187,7 +232,7 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
         if (content.length > 0) {
           pushMarkdown(content);
         }
-        lastIndex = match.index + rawJson.length;
+        lastIndex = fence.fenceEnd;
         continue;
       }
 
@@ -197,7 +242,7 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
         if (codeContent.length > 0) {
           result.contentBlocks.push({ type: 'code', content: codeContent, language });
         }
-        lastIndex = match.index + rawJson.length;
+        lastIndex = fence.fenceEnd;
         continue;
       }
 
@@ -225,13 +270,13 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
           result.contentBlocks.push(qBlock);
           result.question = qBlock;
         }
-        lastIndex = match.index + rawJson.length;
+        lastIndex = fence.fenceEnd;
         continue;
       }
 
       // Unknown type key — show as generic code block
       result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
-      lastIndex = match.index + rawJson.length;
+      lastIndex = fence.fenceEnd;
       continue;
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -244,7 +289,7 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
     ) {
       // Generic JSON code block
       result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
-      lastIndex = match.index + rawJson.length;
+      lastIndex = fence.fenceEnd;
       continue;
     }
 
@@ -252,7 +297,7 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
     if (!action) {
       // Unknown tool — show as code block
       result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
-      lastIndex = match.index + rawJson.length;
+      lastIndex = fence.fenceEnd;
       continue;
     }
 
@@ -260,7 +305,7 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
     result.contentBlocks.push({ type: 'tool', action, actionIndex });
     result.actions.push(action);
 
-    lastIndex = match.index + rawJson.length;
+    lastIndex = fence.fenceEnd;
   }
 
   // Remaining text after last block

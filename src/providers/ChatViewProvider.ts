@@ -181,6 +181,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     const folderPath = workspaceFolder?.uri.fsPath || null;
     const cspSource = webview.cspSource;
+    // Version đọc từ package.json lúc runtime — nguồn duy nhất, không hardcode
+    const zenVersion: string = this._extContext.extension.packageJSON.version;
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -192,6 +194,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
  <script nonce="${nonce}">
  window.__zenWorkspaceFolderPath = ${JSON.stringify(folderPath)};
  window.__zenImagesUri = "${escapedImagesUri}";
+ window.__zenVersion = ${JSON.stringify(zenVersion)};
  </script>
  <style>
  :root {

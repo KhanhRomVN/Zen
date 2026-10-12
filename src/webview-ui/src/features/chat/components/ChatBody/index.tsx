@@ -62,7 +62,10 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   isLoadingConversation = false,
   canRegenerate = true,
   isViewOnly = false,
-  toolFormat = 'xml',
+  toolFormat = "xml",
+  dangerousCommands,
+  onProceedDangerousCommand,
+  onCancelDangerousCommand,
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -133,7 +136,10 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     const firstPendingAction = parsed.actions.find(
       (_action: any, idx: number) => {
         const actionId = `${lastMessage.id}-action-${idx}`;
-        return !(toolOutputs && toolOutputs[actionId]) && !clickedActions.has(actionId);
+        return (
+          !(toolOutputs && toolOutputs[actionId]) &&
+          !clickedActions.has(actionId)
+        );
       },
     );
     if (!firstPendingAction) return false;
@@ -162,21 +168,26 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     const parsed = parsedMessage.parsed;
 
     if ((lastMessage.thinking?.trim().length ?? 0) > 0) return false;
-    if (parsed.contentBlocks?.some((b: any) => b.type === "thinking")) return false;
+    if (parsed.contentBlocks?.some((b: any) => b.type === "thinking"))
+      return false;
     if (parsed.displayText?.trim().length > 0) return false;
     if (parsed.actions?.length > 0) return false;
     if (
       parsed.contentBlocks?.some((b: any) => {
         if (b.type === "thinking") return false;
         switch (b.type) {
-          case "tool": return true;
+          case "tool":
+            return true;
           case "code":
           case "file":
-          case "markdown": return (b as any).content?.trim().length > 0;
-          default: return false;
+          case "markdown":
+            return (b as any).content?.trim().length > 0;
+          default:
+            return false;
         }
       })
-    ) return false;
+    )
+      return false;
 
     return true;
   }, [isProcessing, visibleMessages, parsedMessages]);
@@ -192,7 +203,8 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
         padding: "var(--spacing-lg)",
         paddingLeft: "24px",
         backgroundColor: "var(--secondary-bg)",
-        paddingBottom: visibleMessages.length > 0 ? "200px" : "var(--spacing-lg)",
+        paddingBottom:
+          visibleMessages.length > 0 ? "200px" : "var(--spacing-lg)",
         display: "flex",
         flexDirection: "column",
         gap: "var(--spacing-md)",
@@ -203,7 +215,17 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
       {isLoadingConversation ? (
         <ChatBodySkeleton />
       ) : (
-        <>
+        <div
+          className="chat-body-inner"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--spacing-md)",
+            width: "100%",
+            maxWidth: 900,
+            margin: "0 auto",
+          }}
+        >
           {isSearchOpen && (
             <SearchBar
               searchQuery={searchQuery}
@@ -233,7 +255,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
             });
 
             return visibleMessages.map((message, index) => {
-              const parsedMessage = parsedMessages.find((pm) => pm.id === message.id);
+              const parsedMessage = parsedMessages.find(
+                (pm) => pm.id === message.id,
+              );
               if (!parsedMessage?.parsed) return null;
 
               const currentResponseNumber =
@@ -251,7 +275,8 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                 .find((m) => m.role === "assistant");
 
               const nextVisibleMessage = visibleMessages[index + 1];
-              const hasNextAssistantMessage = nextVisibleMessage?.role === "assistant";
+              const hasNextAssistantMessage =
+                nextVisibleMessage?.role === "assistant";
 
               return (
                 <MessageBoxWithErrorBoundary
@@ -260,13 +285,17 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                   parsedContent={parsedMessage.parsed}
                   nextUserMessage={nextUserMessage}
                   responseNumber={currentResponseNumber}
-                  isGenerating={isProcessing && index === visibleMessages.length - 1}
+                  isGenerating={
+                    isProcessing && index === visibleMessages.length - 1
+                  }
                   isCollapsed={
                     message.role === "user"
                       ? collapsedSections.has(`prompt-${message.id}`)
                       : false
                   }
-                  onToggleCollapse={() => toggleCollapse(`prompt-${message.id}`)}
+                  onToggleCollapse={() =>
+                    toggleCollapse(`prompt-${message.id}`)
+                  }
                   clickedActions={clickedActions}
                   failedActions={failedActions}
                   rejectedActions={rejectedActions}
@@ -274,7 +303,8 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                   executionState={executionState}
                   isLastMessage={
                     message.role === "assistant" &&
-                    (index === visibleMessages.length - 1 || index === lastAssistantIndex) &&
+                    (index === visibleMessages.length - 1 ||
+                      index === lastAssistantIndex) &&
                     !hasNextAssistantMessage
                   }
                   hasNextAssistantMessage={hasNextAssistantMessage}
@@ -304,6 +334,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                   onRetryRequest={handleRetryRequest}
                   canRegenerate={canRegenerate}
                   isViewOnly={isViewOnly}
+                  dangerousCommands={dangerousCommands}
+                  onProceedDangerousCommand={onProceedDangerousCommand}
+                  onCancelDangerousCommand={onCancelDangerousCommand}
                 />
               );
             });
@@ -334,7 +367,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
         }
         .chat-body-scroll { scrollbar-width: thin; }
       `}</style>
-        </>
+        </div>
       )}
     </div>
   );
@@ -359,7 +392,9 @@ const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
     prevProps.isGitStatusVisible === nextProps.isGitStatusVisible &&
     prevProps.singleLineReviewActions === nextProps.singleLineReviewActions &&
     prevProps.canRegenerate === nextProps.canRegenerate &&
-    prevProps.isViewOnly === nextProps.isViewOnly
+    prevProps.isViewOnly === nextProps.isViewOnly &&
+    // [FIX] Ensure dangerousCommands triggers re-render
+    prevProps.dangerousCommands === nextProps.dangerousCommands
   );
 });
 

@@ -20,6 +20,7 @@ import type {
   PromptLengthMode,
 } from "@/features/chat/prompts";
 import { useSettings } from "../context/SettingsContext";
+import { splitModelAndEffort } from "../components/MessageInput/EffortDropdown";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -85,8 +86,14 @@ const savePreset = (
 
 export function useModelPromptSettings(
   providerId: string | null | undefined,
-  modelId: string | null | undefined,
+  rawModelId: string | null | undefined,
 ) {
+  // Effort nằm trong model id (<base>-<effort>) → bỏ suffix để đổi effort
+  // không làm đổi preset của PromptSettingsDropdown / PromptLengthDropdown.
+  const modelId = rawModelId
+    ? splitModelAndEffort(rawModelId).base
+    : rawModelId;
+
   const {
     systemPromptMode: globalSystemPromptMode,
     setSystemPromptMode: setGlobalSystemPromptMode,

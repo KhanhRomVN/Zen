@@ -118,6 +118,13 @@ interface TagRouterProps {
   isAntiInjectionProvider?: boolean;
   /** View-only: disable question/option buttons */
   isViewOnly?: boolean;
+  /** Dangerous command warnings keyed by actionId */
+  dangerousCommands?: Record<
+    string,
+    { actionId: string; commandText: string; folderPath?: string; reason: string }
+  >;
+  onProceedDangerousCommand?: (actionId: string) => void;
+  onCancelDangerousCommand?: (actionId: string) => void;
 }
 
 interface GitDiffItemProps {
@@ -235,6 +242,9 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   firstUnclickedActionIndex,
   isAntiInjectionProvider = false,
   isViewOnly = false,
+  dangerousCommands,
+  onProceedDangerousCommand,
+  onCancelDangerousCommand,
 }) => {
   const { rootPath } = useProject();
   // Handle UI blocks (markdown, code, question, error, warning)
@@ -914,6 +924,9 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
               onToolClick={onToolClick}
               storedOutput={null} // Remove global storedOutput to avoid cross-contamination
               isDisplayOnly={currentIsDisplayOnly}
+              dangerousCommand={dangerousCommands?.[actionId]}
+              onProceedDangerousCommand={onProceedDangerousCommand}
+              onCancelDangerousCommand={onCancelDangerousCommand}
             />
           );
         })}
@@ -1363,6 +1376,12 @@ interface ToolActionsListProps {
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
   onBackToHome?: (summary: string) => void;
+  dangerousCommands?: Record<
+    string,
+    { actionId: string; commandText: string; folderPath?: string; reason: string }
+  >;
+  onProceedDangerousCommand?: (actionId: string) => void;
+  onCancelDangerousCommand?: (actionId: string) => void;
 }
 
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
@@ -1392,6 +1411,9 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   isGitProcessing,
   isGitStatusVisible = true,
   onBackToHome,
+  dangerousCommands,
+  onProceedDangerousCommand,
+  onCancelDangerousCommand,
 }) => {
   // Filter out invisible tools immediately
   const visibleItems = React.useMemo(() => {
@@ -1514,6 +1536,9 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             isGitProcessing={isGitProcessing}
             isGitStatusVisible={isGitStatusVisible}
             onBackToHome={onBackToHome}
+            dangerousCommands={dangerousCommands}
+            onProceedDangerousCommand={onProceedDangerousCommand}
+            onCancelDangerousCommand={onCancelDangerousCommand}
           />
         </React.Fragment>
       );
@@ -1529,6 +1554,9 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
     nextUserMessage,
     allMessages,
     allActions,
+    dangerousCommands,
+    onProceedDangerousCommand,
+    onCancelDangerousCommand,
   ]);
 
   if (!visibleItems || visibleItems.length === 0) return null;

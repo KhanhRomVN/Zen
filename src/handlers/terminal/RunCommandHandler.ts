@@ -46,11 +46,23 @@ export class RunCommandHandler {
         }
       }
 
-      const securityCheck = SecurityValidator.validateCommand(
-        message.commandText,
-      );
-      if (!securityCheck.safe) {
-        throw new Error(securityCheck.reason || "Command validation failed");
+      // Bỏ qua security check nếu user đã xác nhận proceed (flag từ UI)
+      if (!message._bypassDangerCheck) {
+        const securityCheck = SecurityValidator.validateCommand(
+          message.commandText,
+        );
+        if (!securityCheck.safe) {
+          // KHÔNG throw — gửi cảnh báo về webview để hiển thị dialog Confirm/Cancel
+          webviewView.webview.postMessage({
+            command: "dangerousCommandDetected",
+            actionId: message.actionId,
+            requestId: message.requestId,
+            commandText: message.commandText,
+            folderPath: message.folderPath,
+            reason: securityCheck.reason || "Command validation failed",
+          });
+          return;
+        }
       }
 
       const result = await this.terminalManager.startInteractive(cwd);
@@ -76,10 +88,14 @@ export class RunCommandHandler {
         error: e.message,
         stack: e.stack,
       });
+      // FIX: Thêm actionId vào error response để webview resolve pending promise
       webviewView.webview.postMessage({
         command: "runCommandResult",
         requestId: message.requestId,
+        actionId: message.actionId,
+        terminalId: undefined,
         error: e.message,
+        output: "",
       });
     }
   }

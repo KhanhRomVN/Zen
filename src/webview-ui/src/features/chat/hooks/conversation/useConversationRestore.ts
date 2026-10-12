@@ -149,6 +149,13 @@ export const useConversationRestore = ({
     const handler = (event: MessageEvent) => {
       const data = event.data;
       if (data.command === "conversationResult") {
+        // Bỏ qua phản hồi do component khác yêu cầu (HistoryCard hover: "hist-card-*", copy: "copy-*")
+        if (
+          typeof data.requestId === "string" &&
+          !data.requestId.startsWith("conv-")
+        ) {
+          return;
+        }
         if (data.data?.messages) {
           const restoredMessages = data.data.messages.map(
             (msg: Message, i: number) => ({

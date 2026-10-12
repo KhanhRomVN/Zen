@@ -22,6 +22,7 @@ import { Message } from "../../../../types/message";
 import { getPermissionDecision } from "../../../../utils/permissionUtils";
 
 // ICONS
+import { ShieldAlert } from "lucide-react";
 import { getFolderIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
@@ -53,6 +54,15 @@ interface RunCommandRendererProps {
   ) => void;
   storedOutput?: string | null;
   isDisplayOnly?: boolean;
+  /** Dangerous command warning info (if detected) */
+  dangerousCommand?: {
+    actionId: string;
+    commandText: string;
+    folderPath?: string;
+    reason: string;
+  };
+  onProceedDangerousCommand?: (actionId: string) => void;
+  onCancelDangerousCommand?: (actionId: string) => void;
 }
 
 export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
@@ -70,6 +80,9 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
   onToolClick,
   storedOutput,
   isDisplayOnly = false,
+  dangerousCommand,
+  onProceedDangerousCommand,
+  onCancelDangerousCommand,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isRejectedLocal, setIsRejectedLocal] = React.useState(false);
@@ -244,6 +257,7 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
         }}
       />
 
+      {/* ─── Main Content Area ─── */}
       {isCollapsed ? (
         <div
           onClick={() => setIsCollapsed(false)}
@@ -253,8 +267,7 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
             color: "var(--vscode-terminal-foreground, #cccccc)",
             padding: "6px 10px",
             backgroundColor: "var(--vscode-terminal-background, #1e1e1e)",
-            border:
-              "1px solid var(--vscode-panel-border, rgba(128,128,128,0.2))",
+            border: "1px solid var(--vscode-panel-border, rgba(128,128,128,0.2))",
             borderRadius: "6px",
             whiteSpace: "pre-wrap",
             wordBreak: "break-all",
@@ -277,10 +290,11 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
         />
       ) : (
         <>
+          {/* 1. Always show Terminal Block first to keep UI consistent */}
           <TerminalBlock
             logs={
               isDisplayOnly
-                ? "This command was executed by the AI agent in its sandboxed environment and is not run locally."
+                ? "Lệnh này đã được thực thi bởi AI trong môi trường sandbox và không chạy cục bộ."
                 : outputData?.output || extractedOutput || storedOutput || ""
             }
             initialCommand={action.params.command}
@@ -298,11 +312,132 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                 : undefined
             }
           />
+
+          {/* 2. Dangerous Command Warning & Actions (Inserted below Terminal) */}
+          {dangerousCommand && !isCompleted && (
+            <div
+              style={{
+                marginTop: "8px",
+                padding: "8px 10px",
+                backgroundColor:
+                  "color-mix(in srgb, var(--vscode-editorWarning-foreground, #e3b341) 5%, transparent)",
+                border:
+                  "1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, #e3b341) 22%, transparent)",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "8px 12px",
+              }}
+            >
+              {/* Icon + message */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "8px",
+                  flex: "1 1 200px",
+                  minWidth: 0,
+                }}
+              >
+                <ShieldAlert
+                  size={14}
+                  strokeWidth={2}
+                  style={{
+                    color: "var(--vscode-editorWarning-foreground, #e3b341)",
+                    flexShrink: 0,
+                    marginTop: "1px",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: "11px",
+                    lineHeight: 1.5,
+                    color: "var(--vscode-foreground)",
+                    opacity: 0.85,
+                  }}
+                >
+                  Review this command carefully before running it.
+                </span>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: "flex", gap: "6px", marginLeft: "auto" }}>
+                {/* Cancel: ghost button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCancelDangerousCommand?.(dangerousCommand.actionId);
+                  }}
+                  style={{
+                    background: "transparent",
+                    color: "var(--vscode-descriptionForeground, #8b8b8b)",
+                    border:
+                      "1px solid var(--vscode-widget-border, rgba(128,128,128,0.25))",
+                    cursor: "pointer",
+                    padding: "0 10px",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    height: "24px",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(128,128,128,0.12)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  Cancel
+                </button>
+
+                {/* Accept risk: soft warning-tinted button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onProceedDangerousCommand?.(dangerousCommand.actionId);
+                  }}
+                  style={{
+                    background:
+                      "color-mix(in srgb, var(--vscode-editorWarning-foreground, #e3b341) 14%, transparent)",
+                    color: "var(--vscode-editorWarning-foreground, #e3b341)",
+                    border:
+                      "1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, #e3b341) 30%, transparent)",
+                    cursor: "pointer",
+                    padding: "0 10px",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    height: "24px",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "color-mix(in srgb, var(--vscode-editorWarning-foreground, #e3b341) 24%, transparent)";
+                    e.currentTarget.style.borderColor =
+                      "color-mix(in srgb, var(--vscode-editorWarning-foreground, #e3b341) 45%, transparent)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "color-mix(in srgb, var(--vscode-editorWarning-foreground, #e3b341) 14%, transparent)";
+                    e.currentTarget.style.borderColor =
+                      "color-mix(in srgb, var(--vscode-editorWarning-foreground, #e3b341) 30%, transparent)";
+                  }}
+                >
+                  Accept risk
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Standard Busy State Controls */}
           {isTerminalBusy && (
             <div
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
+                marginTop: "4px",
               }}
             >
               <button
@@ -314,7 +449,7 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                     terminalId,
                   });
                 }}
-                title="Finalize output, kill process and delete terminal"
+                title="Hoàn tất đầu ra, kết thúc tiến trình và xóa terminal"
                 style={{
                   background:
                     "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 10%, transparent)",
@@ -341,11 +476,13 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                 >
                   <rect x="6" y="6" width="12" height="12" />
                 </svg>
-                Complete
+                Hoàn tất
               </button>
             </div>
           )}
-          {needsPrompt &&
+
+          {/* 4. Default ActionBar (Hidden if dangerousCommand is active/pending) */}
+          {!dangerousCommand && needsPrompt &&
             !isTerminalBusy &&
             !isCompleted &&
             !hasValidationError && (

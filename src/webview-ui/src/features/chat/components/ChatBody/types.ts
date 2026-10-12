@@ -106,4 +106,11 @@ export interface ExtendedChatBodyProps extends ChatBodyProps {
   onCloseSearch?: () => void;
   /** Tool call format for this conversation */
   toolFormat?: 'xml' | 'json';
+  /** Dangerous command warnings keyed by actionId */
+  dangerousCommands?: Record<
+    string,
+    { actionId: string; commandText: string; folderPath?: string; reason: string }
+  >;
+  onProceedDangerousCommand?: (actionId: string) => void;
+  onCancelDangerousCommand?: (actionId: string) => void;
 }

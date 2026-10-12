@@ -51,6 +51,8 @@ import { ChatSession } from "./types/chat";
 import ChatHeader from "./components/ChatHeader";
 import ChatBody from "./components/ChatBody";
 import ChatFooter from "./components/ChatFooter";
+import ChatSidebarLayout from "./components/ChatSidebarLayout";
+import { useConversationInsights } from "./hooks/messages/useConversationInsights";
 
 interface ChatPanelProps {
   currentChat: ChatSession | null;
@@ -666,6 +668,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     singleLineReviewActions,
     confirmSingleLineAction,
     rejectSingleLineAction,
+    dangerousCommands,
+    proceedDangerousCommand,
+    cancelDangerousCommand,
   } = useToolExecution({
     conversationIdRef: currentConversationIdRef,
     messagesRef: messagesRef,
@@ -753,6 +758,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // --- Context Usage ---
   const contextUsage = useContextUsage(messages);
+
+  // --- Conversation insights (files changed, tool activity) cho right sidebar ---
+  const conversationInsights = useConversationInsights(parsedMessages);
 
   // --- File Stats ---
   const conversationFileStats = useFileStats(
@@ -1108,15 +1116,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const firstRequestMessage = messages.find((m) => m.role === "user");
   const displayedModel = enrichedModel ?? currentModel;
-  const totalTokens = contextUsage?.total ?? 0;
   const footerPaddingBottom =
     showBrowserWarning && currentModel?.providerId === "zai-browser"
       ? "20px"
       : "8px";
 
   // ── Active conversation overrides (diagnostic / skill / memory) ──────
-  const activeOverrides =
-    pendingConversationOverridesRef.current ?? restoredConversationOverrides;
   // ── Chat-level token & message stats from messages ───────────────────
   // 1 msg = 1 user request + 1 assistant response.
   // Token count = prompt_tokens (req) + completion_tokens (res), summed across all msgs.
@@ -1246,142 +1251,150 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // --- Render ---
   return (
-    <div
-      className="chat-panel"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        backgroundColor: "var(--secondary-bg)",
-        color: "var(--vscode-editor-foreground)",
-      }}
+    <ChatSidebarLayout
+      currentConversationId={currentConversationId}
+      onLoadConversation={onLoadConversation}
+      onCurrentDeleted={onBack}
     >
-      {/* ─── ChatHeader ─── */}
-      <ChatHeader
-        displayedModel={displayedModel}
-        currentAccount={currentAccount}
-        setCurrentAccount={setCurrentAccount}
-        messages={messages}
-        conversationTitle={conversationTitle}
-        currentConversationId={currentConversationId}
-        currentTaskName={currentTaskName}
-        promptLengthMode={promptLengthMode}
-        systemPromptMode={systemPromptMode}
-        contextUsage={contextUsage}
-        chatTokens={chatStats.tokens}
-        chatRequests={chatStats.requests}
-        isSearchOpen={isSearchOpen}
-        setIsSearchOpen={setIsSearchOpen}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        onCopyAsMarkdown={handleCopyAsMarkdown}
-        onCopyAsJson={handleCopyAsJson}
-        onDeleteConversation={handleDeleteConversation}
-        onExportAsJson={handleExportAsJson}
-      />
-
-      {/* ─── ChatBody ─── */}
-      <ChatBody
-        messages={parsedMessages}
-        isProcessing={isProcessing}
-        isContinuing={isContinuing}
-        onSendToolRequest={memoizedHandleToolRequest}
-        onSendMessage={memoizedWrappedSendMessage}
-        executionState={executionState}
-        toolOutputs={toolOutputs}
-        terminalStatus={terminalStatus}
-        firstRequestMessageId={firstRequestMessage?.id}
-        onLoadConversation={onLoadConversation}
-        conversationId={currentConversationId}
-        onToolAction={handleToolAction}
-        onSelectOption={handleSelectOption}
-        isRestored={isRestored}
-        onContinue={() => setIsRestored(false)}
-        hasInitialMessage={!!initialMessageData}
-        onRevertConversation={handleRevertConversation}
-        onAutoScrollPausedChange={setAutoScrollPaused}
-        scrollToBottomRef={scrollToBottomRef}
-        singleLineReviewActions={singleLineReviewActions}
-        onConfirmSingleLineAction={confirmSingleLineAction}
-        onRejectSingleLineAction={rejectSingleLineAction}
-        isSearchOpen={isSearchOpen}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        onCloseSearch={() => {
-          setIsSearchOpen(false);
-          setSearchQuery("");
+      <div
+        className="chat-panel"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          backgroundColor: "var(--secondary-bg)",
+          color: "var(--vscode-editor-foreground)",
         }}
-        onGitConfirm={handleGitConfirm}
-        onGitCancel={handleGitCancel}
-        gitStatusItems={gitStatus?.items || []}
-        gitStatusBranch={gitStatus?.branch || ""}
-        isGitProcessing={gitCommitLoading}
-        isGitStatusVisible={showGitStatusBlock}
-        onBackToHome={handleBackToHome}
-        isLoadingConversation={isLoadingConversation}
-        canRegenerate={canRegenerate && !isViewOnly}
-        isViewOnly={isViewOnly}
-        toolFormat={currentToolFormat}
-      />
+      >
+        {/* ─── ChatHeader ─── */}
+        <ChatHeader
+          displayedModel={displayedModel}
+          currentAccount={currentAccount}
+          setCurrentAccount={setCurrentAccount}
+          messages={messages}
+          conversationTitle={conversationTitle}
+          currentConversationId={currentConversationId}
+          currentTaskName={currentTaskName}
+          promptLengthMode={promptLengthMode}
+          systemPromptMode={systemPromptMode}
+          contextUsage={contextUsage}
+          chatTokens={chatStats.tokens}
+          chatRequests={chatStats.requests}
+          isSearchOpen={isSearchOpen}
+          setIsSearchOpen={setIsSearchOpen}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onCopyAsMarkdown={handleCopyAsMarkdown}
+          onCopyAsJson={handleCopyAsJson}
+          onDeleteConversation={handleDeleteConversation}
+          onExportAsJson={handleExportAsJson}
+        />
 
-      {/* ─── ChatFooter ─── */}
-      <ChatFooter
-        message={message}
-        setMessage={setMessage}
-        isHistoryMode={isHistoryMode}
-        uploadedFiles={uploadedFiles}
-        attachedItems={attachedItems}
-        textareaRef={textareaRef}
-        handleTextareaChange={handleTextareaChange}
-        handleKeyDown={handleKeyDown}
-        handlePaste={handlePaste}
-        handleDragOver={handleDragOver}
-        handleDrop={handleDrop}
-        handleFileSelect={handleFileSelect}
-        fileInputRef={fileInputRef}
-        onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
-        showChangesDropdown={showChangesDropdown}
-        setShowChangesDropdown={setShowChangesDropdown}
-        messages={messages}
-        handleSend={handleSend}
-        hasProjectContext={!!projectContext}
-        onOpenProjectContext={() => setShowProjectContextModal(true)}
-        folderPath={currentChat?.folderPath || null}
-        isConversationStarted={messages.length > 0 || !!initialMessageData}
-        currentModel={enrichedModel ?? currentModel}
-        setCurrentModel={setCurrentModel}
-        currentAccount={currentAccount}
-        setCurrentAccount={setCurrentAccount}
-        isProcessing={isProcessing || executionState.status === "running"}
-        isStreaming={isStreaming}
-        onStopGeneration={handleStopGeneration}
-        showBrowserWarning={showBrowserWarning}
-        isLaunchingBrowser={isLaunchingBrowser}
-        onLaunchBrowserSession={launchBrowserSession}
-        onGitPullRequest={handleGitPullRequest}
-        gitLoading={gitLoading}
-        isGitStatusVisible={showGitStatusBlock}
-        removeAttachedItem={handleRemoveAttachedItem}
-        onOpenImage={handleOpenImage}
-        removeFile={removeFile}
-        externalFileInputRef={externalFileInputRef}
-        handleExternalFileInputChange={handleExternalFileInputChange}
-        handleFileInputChange={handleFileInputChange}
-        footerPaddingBottom={footerPaddingBottom}
-        gitStatus={gitStatus}
-        onOpenGitStatus={() => setShowGitStatusBlock(true)}
-        loadedConversationFileStats={loadedConversationFileStats}
-        onRevertConversation={handleRevertConversation}
-        autoScrollPaused={autoScrollPaused}
-        scrollToBottom={scrollToBottomRef.current || undefined}
-        onSelectRule={handleSelectRule}
-        isViewOnly={isViewOnly}
-        conversationToolFormat={conversationToolFormat}
-        onConversationToolFormatToggle={handleToolFormatToggle}
-        lastResponseEndTime={lastResponseEndTime}
-        requestCooldownMs={currentProviderCooldownMs}
-      />
-    </div>
+        {/* ─── ChatBody ─── */}
+        <ChatBody
+          messages={parsedMessages}
+          isProcessing={isProcessing}
+          isContinuing={isContinuing}
+          onSendToolRequest={memoizedHandleToolRequest}
+          onSendMessage={memoizedWrappedSendMessage}
+          executionState={executionState}
+          toolOutputs={toolOutputs}
+          terminalStatus={terminalStatus}
+          firstRequestMessageId={firstRequestMessage?.id}
+          onLoadConversation={onLoadConversation}
+          conversationId={currentConversationId}
+          onToolAction={handleToolAction}
+          onSelectOption={handleSelectOption}
+          isRestored={isRestored}
+          onContinue={() => setIsRestored(false)}
+          hasInitialMessage={!!initialMessageData}
+          onRevertConversation={handleRevertConversation}
+          onAutoScrollPausedChange={setAutoScrollPaused}
+          scrollToBottomRef={scrollToBottomRef}
+          singleLineReviewActions={singleLineReviewActions}
+          onConfirmSingleLineAction={confirmSingleLineAction}
+          onRejectSingleLineAction={rejectSingleLineAction}
+          isSearchOpen={isSearchOpen}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          onCloseSearch={() => {
+            setIsSearchOpen(false);
+            setSearchQuery("");
+          }}
+          onGitConfirm={handleGitConfirm}
+          onGitCancel={handleGitCancel}
+          gitStatusItems={gitStatus?.items || []}
+          gitStatusBranch={gitStatus?.branch || ""}
+          isGitProcessing={gitCommitLoading}
+          isGitStatusVisible={showGitStatusBlock}
+          onBackToHome={handleBackToHome}
+          isLoadingConversation={isLoadingConversation}
+          canRegenerate={canRegenerate && !isViewOnly}
+          isViewOnly={isViewOnly}
+          toolFormat={currentToolFormat}
+          dangerousCommands={dangerousCommands}
+          onProceedDangerousCommand={proceedDangerousCommand}
+          onCancelDangerousCommand={cancelDangerousCommand}
+        />
+        {/* ─── ChatFooter ─── */}
+        <ChatFooter
+          message={message}
+          setMessage={setMessage}
+          isHistoryMode={isHistoryMode}
+          uploadedFiles={uploadedFiles}
+          attachedItems={attachedItems}
+          textareaRef={textareaRef}
+          handleTextareaChange={handleTextareaChange}
+          handleKeyDown={handleKeyDown}
+          handlePaste={handlePaste}
+          handleDragOver={handleDragOver}
+          handleDrop={handleDrop}
+          handleFileSelect={handleFileSelect}
+          fileInputRef={fileInputRef}
+          onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
+          showChangesDropdown={showChangesDropdown}
+          setShowChangesDropdown={setShowChangesDropdown}
+          messages={messages}
+          handleSend={handleSend}
+          hasProjectContext={!!projectContext}
+          onOpenProjectContext={() => setShowProjectContextModal(true)}
+          folderPath={currentChat?.folderPath || null}
+          isConversationStarted={messages.length > 0 || !!initialMessageData}
+          currentModel={enrichedModel ?? currentModel}
+          setCurrentModel={setCurrentModel}
+          currentAccount={currentAccount}
+          setCurrentAccount={setCurrentAccount}
+          isProcessing={isProcessing || executionState.status === "running"}
+          isStreaming={isStreaming}
+          onStopGeneration={handleStopGeneration}
+          showBrowserWarning={showBrowserWarning}
+          isLaunchingBrowser={isLaunchingBrowser}
+          onLaunchBrowserSession={launchBrowserSession}
+          onGitPullRequest={handleGitPullRequest}
+          gitLoading={gitLoading}
+          isGitStatusVisible={showGitStatusBlock}
+          removeAttachedItem={handleRemoveAttachedItem}
+          onOpenImage={handleOpenImage}
+          removeFile={removeFile}
+          externalFileInputRef={externalFileInputRef}
+          handleExternalFileInputChange={handleExternalFileInputChange}
+          handleFileInputChange={handleFileInputChange}
+          footerPaddingBottom={footerPaddingBottom}
+          gitStatus={gitStatus}
+          onOpenGitStatus={() => setShowGitStatusBlock(true)}
+          loadedConversationFileStats={loadedConversationFileStats}
+          onRevertConversation={handleRevertConversation}
+          autoScrollPaused={autoScrollPaused}
+          scrollToBottom={scrollToBottomRef.current || undefined}
+          onSelectRule={handleSelectRule}
+          isViewOnly={isViewOnly}
+          conversationToolFormat={conversationToolFormat}
+          onConversationToolFormatToggle={handleToolFormatToggle}
+          lastResponseEndTime={lastResponseEndTime}
+          requestCooldownMs={currentProviderCooldownMs}
+        />
+      </div>
+    </ChatSidebarLayout>
   );
 };
 
@@ -1391,6 +1404,9 @@ export default React.memo(ChatPanel, (prevProps, nextProps) => {
     prevProps.currentChat?.sessionId === nextProps.currentChat?.sessionId;
   const folderPathSame =
     prevProps.currentChat?.folderPath === nextProps.currentChat?.folderPath;
+  const conversationIdSame =
+    (prevProps.currentChat as any)?.conversationId ===
+    (nextProps.currentChat as any)?.conversationId;
   const initialDataSame =
     prevProps.initialMessageData === nextProps.initialMessageData;
   const onBackSame = prevProps.onBack === nextProps.onBack;
@@ -1402,6 +1418,7 @@ export default React.memo(ChatPanel, (prevProps, nextProps) => {
   return (
     sessionIdSame &&
     folderPathSame &&
+    conversationIdSame &&
     initialDataSame &&
     onBackSame &&
     onLoadConvSame &&

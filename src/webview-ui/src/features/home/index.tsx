@@ -27,8 +27,14 @@ import { getFaviconUrl } from "@/utils/favicon";
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 import StatsGrid from "./components/StatsGrid";
-import RecentActivity from "./components/RecentActivity";
+
 import ModelDistributionCard from "./components/ModelDistributionCard";
+import { AccountStat } from "./utils/format";
+import TopAccountsCard from "./components/TopAccountsCard";
+import EfficiencyMapCard from "./components/EfficiencyMapCard";
+import HomeSidebar from "./components/HomeSidebar";
+import HomeHeader from "./components/HomeHeader";
+import RecentActivity from "./components/RecentActivity";
 // ── Contexts ──
 import { useSettings } from "@/context/SettingsContext";
 import { useBackendConnection } from "@/context/BackendConnectionContext";
@@ -49,20 +55,21 @@ import {
 import { ConversationItem } from "../history/types";
 import DailyUsageChart from "./components/DailyUsageChart";
 import InstallationBanner from "./components/InstallationBanner";
-import UpdateBanner from "./components/UpdateBanner";
-import StatsPeriodPicker from "./components/StatsPeriodPicker";
-import { useStatsPeriod } from "./hooks/useStatsPeriod";
-import { useToolFormatSettings } from "../../hooks/useToolFormatSettings";
+import AIWeb2APIUpdateBanner from "./components/AIWeb2APIUpdateBanner";
+import ZenUpdateBanner from "./components/ZenUpdateBanner";
+import { useZenUpdate } from "./hooks/useZenUpdate";
+import { useContainerWidth } from "./hooks/useContainerWidth";
+import SidebarWidthToggle from "./components/SidebarWidthToggle";
 
-// ─── Constants ──────────────────────────────────────────────────────────
-const SLOGANS = [
-  "Code smarter, not harder",
-  "Your AI coding companion",
-  "Boost your productivity",
-  "Where ideas meet implementation",
-  "Ship faster with confidence",
-  "Your partner in development",
-] as const;
+import {
+  useStatsPeriod,
+  readCachedPeriodState,
+  readStatsSnapshot,
+  writeStatsSnapshot,
+  readGlobalSnapshot,
+  writeGlobalSnapshot,
+} from "./hooks/useStatsPeriod";
+import { useToolFormatSettings } from "../../hooks/useToolFormatSettings";
 
 // Memoized dashboard stats component to prevent re-render on typing
 const DashboardStats = React.memo(
@@ -74,9 +81,7 @@ const DashboardStats = React.memo(
     modelDistribution,
     providerFavicons,
     dailyUsage,
-    sortedConversations,
-    isLoading,
-    onLoadConversation,
+    accounts,
     statsPeriod,
   }: {
     todayTokens: number;
@@ -86,13 +91,7 @@ const DashboardStats = React.memo(
     modelDistribution: any[];
     providerFavicons: Record<string, string>;
     dailyUsage: any[];
-    sortedConversations: ConversationItem[];
-    isLoading: boolean;
-    onLoadConversation: (
-      conversationId: string,
-      tabId: number,
-      folderPath: string | null,
-    ) => void;
+    accounts: AccountStat[];
     statsPeriod: import("./hooks/useStatsPeriod").StatsPeriod;
   }) => {
     const renderCountRef = React.useRef(0);
@@ -116,41 +115,49 @@ const DashboardStats = React.memo(
     }, [dailyUsage, modelDistribution, favoriteModel]);
 
     return (
-      <div
-        style={{
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          gap: "16px",
-        }}
-      >
-        <StatsGrid
-          todayTokens={todayTokens}
-          todayRequests={todayRequests}
-          favoriteModel={favoriteModel}
-          totalAccounts={totalAccounts}
-          percentChanges={percentChanges}
-        />
+      <div style={{ display: "contents" }}>
+        <div className="zen-home-stats">
+          <StatsGrid
+            todayTokens={todayTokens}
+            todayRequests={todayRequests}
+            favoriteModel={favoriteModel}
+            totalAccounts={totalAccounts}
+            percentChanges={percentChanges}
+          />
+        </div>
 
-        <ModelDistributionCard
-          modelDistribution={modelDistribution}
-          providerFavicons={providerFavicons}
-          title="AI Model Distribution"
-          emptyText="Loading history..."
-        />
+        <div className="zen-home-dist">
+          <ModelDistributionCard
+            modelDistribution={modelDistribution}
+            providerFavicons={providerFavicons}
+            title="AI Model Distribution"
+            emptyText="Loading history..."
+          />
+        </div>
 
-        <DailyUsageChart
-          usage={dailyUsage}
-          title="Usage"
-          period={statsPeriod}
-        />
+        <div className="zen-home-usage">
+          <DailyUsageChart
+            usage={dailyUsage}
+            title="Usage"
+            period={statsPeriod}
+          />
+        </div>
 
-        <RecentActivity
-          conversations={sortedConversations}
-          isLoading={isLoading}
-          onLoadConversation={onLoadConversation}
-          providerFavicons={providerFavicons}
-        />
+        <div className="zen-home-top">
+          <TopAccountsCard
+            accounts={accounts}
+            providerFavicons={providerFavicons}
+            title="Top Accounts"
+          />
+        </div>
+
+        <div className="zen-home-ins">
+          <EfficiencyMapCard
+            accounts={accounts}
+            providerFavicons={providerFavicons}
+            title="Efficiency Map"
+          />
+        </div>
       </div>
     );
   },
@@ -185,13 +192,29 @@ const HomePanel: React.FC<HomePanelProps> = ({
   initialValue,
 }) => {
   // ── State ──
-  const [sloganIndex, setSloganIndex] = useState(0);
+
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [todayTokens, setTodayTokens] = useState<number>(0);
-  const [todayRequests, setTodayRequests] = useState<number>(0);
-  const [favoriteModel, setFavoriteModel] = useState<string>("—");
-  const [totalAccounts, setTotalAccounts] = useState<number>(0);
+  // Snapshot cache đọc đồng bộ 1 lần ở lần render đầu → hiển thị data ngay
+  const [initialCache] = useState(() => {
+    const p = readCachedPeriodState();
+    return {
+      stats: readStatsSnapshot(p.period, p.offset),
+      global: readGlobalSnapshot(),
+    };
+  });
+  const [todayTokens, setTodayTokens] = useState<number>(
+    initialCache.stats?.todayTokens ?? 0,
+  );
+  const [todayRequests, setTodayRequests] = useState<number>(
+    initialCache.stats?.todayRequests ?? 0,
+  );
+  const [favoriteModel, setFavoriteModel] = useState<string>(
+    initialCache.stats?.favoriteModel ?? "—",
+  );
+  const [totalAccounts, setTotalAccounts] = useState<number>(
+    initialCache.global?.totalAccounts ?? 0,
+  );
   const [modelDistribution, setModelDistribution] = useState<
     {
       model_id: string;
@@ -199,14 +222,60 @@ const HomePanel: React.FC<HomePanelProps> = ({
       total_requests: number;
       total_tokens: number;
     }[]
-  >([]);
+  >(initialCache.stats?.modelDistribution ?? []);
   const [dailyUsage, setDailyUsage] = useState<
     { date: string; requests: number; tokens: number }[]
-  >([]);
+  >(initialCache.stats?.dailyUsage ?? []);
   const [providerFavicons, setProviderFavicons] = useState<
     Record<string, string>
-  >({});
+  >(initialCache.global?.providerFavicons ?? {});
   const [providers, setProviders] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<AccountStat[]>([]);
+  const SIDEBAR_WIDTH_KEY = "zen.home.sidebarWidth";
+  const SIDEBAR_MIN = 240;
+  const SIDEBAR_MAX = 640;
+  const SIDEBAR_DEFAULT = 340;
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    try {
+      const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+      if (saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) return saved;
+    } catch {}
+    return SIDEBAR_DEFAULT;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+
+  const handleResizeStart = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = sidebarWidth;
+      let latest = startWidth;
+      setIsResizing(true);
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+
+      const onMove = (ev: MouseEvent) => {
+        latest = Math.min(
+          SIDEBAR_MAX,
+          Math.max(SIDEBAR_MIN, startWidth + ev.clientX - startX),
+        );
+        setSidebarWidth(latest);
+      };
+      const onUp = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        setIsResizing(false);
+        try {
+          localStorage.setItem(SIDEBAR_WIDTH_KEY, String(latest));
+        } catch {}
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [sidebarWidth],
+  );
   const [attachedItems, setAttachedItems] = React.useState<any[]>([]);
 
   // ── Per-conversation feature toggles (default from global settings) ──
@@ -221,6 +290,36 @@ const HomePanel: React.FC<HomePanelProps> = ({
     setMemoryEnabled,
   } = useSettings();
   const { isConnected, updateInfo } = useBackendConnection();
+  const zenUpdateInfo = useZenUpdate();
+  const { ref: homeRef, tier, isWide } = useContainerWidth<HTMLDivElement>();
+
+  // Báo extension khi sidebar lịch sử của Home đang hiện (>= 700px, khớp CSS @container zen-root)
+  useEffect(() => {
+    const el = homeRef.current;
+    if (!el) return;
+    const HOME_SIDEBAR_MIN = 700;
+    let last: boolean | null = null;
+    const report = (visible: boolean) => {
+      if (last === visible) return;
+      last = visible;
+      (window as any).vscodeApi?.postMessage({
+        command: "setHistorySidebarVisible",
+        visible,
+      });
+    };
+    report(el.clientWidth >= HOME_SIDEBAR_MIN);
+    const ro = new ResizeObserver(([entry]) =>
+      report(entry.contentRect.width >= HOME_SIDEBAR_MIN),
+    );
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      (window as any).vscodeApi?.postMessage({
+        command: "setHistorySidebarVisible",
+        visible: false,
+      });
+    };
+  }, [homeRef]);
 
   // ── Stats period picker ──
   const {
@@ -469,6 +568,24 @@ const HomePanel: React.FC<HomePanelProps> = ({
     });
   }, []);
 
+  // Áp snapshot đã cache của kỳ đang chọn ngay khi đổi period/offset (không đợi mạng)
+  useEffect(() => {
+    const snap = readStatsSnapshot(statsPeriod, statsOffset);
+    if (!snap) return;
+    setTodayTokens(snap.todayTokens);
+    setTodayRequests(snap.todayRequests);
+    setFavoriteModel(snap.favoriteModel);
+    setModelDistribution(snap.modelDistribution);
+    setAccounts(snap.accounts);
+    setDailyUsage(snap.dailyUsage);
+  }, [statsPeriod, statsOffset]);
+
+  // Cache dữ liệu không phụ thuộc period (chỉ ghi khi đã có favicons thật)
+  useEffect(() => {
+    if (Object.keys(providerFavicons).length === 0) return;
+    writeGlobalSnapshot({ totalAccounts, providerFavicons });
+  }, [totalAccounts, providerFavicons]);
+
   // Fetch stats from API — re-run when period/offset changes, or khi backend kết nối lại
   useEffect(() => {
     if (!isConnected) return; // chờ kết nối trước khi fetch
@@ -507,8 +624,24 @@ const HomePanel: React.FC<HomePanelProps> = ({
               (m: any) => m.total_requests > 0,
             );
             setModelDistribution(models.slice(0, 5));
+            setAccounts(stats.data.accounts || []);
             setDailyUsage(stats.data.usage || []);
             if (models.length > 0) setFavoriteModel(models[0].model_id);
+            // Ghi cache theo đúng kỳ vừa fetch để lần mở/đổi kỳ sau hiện ngay
+            writeStatsSnapshot(statsPeriod, statsOffset, {
+              todayTokens: usage.reduce(
+                (s: number, u: any) => s + (u.tokens || 0),
+                0,
+              ),
+              todayRequests: usage.reduce(
+                (s: number, u: any) => s + (u.requests || 0),
+                0,
+              ),
+              favoriteModel: models.length > 0 ? models[0].model_id : "—",
+              modelDistribution: models.slice(0, 5),
+              accounts: stats.data.accounts || [],
+              dailyUsage: stats.data.usage || [],
+            });
           }
         }
         if (accountsRes.ok) {
@@ -536,14 +669,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
     };
     fetchStats();
   }, [apiUrl, statsPeriod, statsOffset, isConnected]);
-
-  // Rotate slogans
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSloganIndex((prev) => (prev + 1) % SLOGANS.length);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Fetch conversation history
   useEffect(() => {
@@ -574,14 +699,98 @@ const HomePanel: React.FC<HomePanelProps> = ({
   // ── Render ──
   return (
     <div
+      ref={homeRef}
       className="home-panel"
       style={{
+        position: "relative",
         display: "flex",
-        flexDirection: "column",
+        flexDirection: "row",
         height: "100vh",
         backgroundColor: "var(--primary-bg)",
+        borderTop: "1px solid var(--border-color)",
+        boxSizing: "border-box",
+        containerType: "inline-size",
+        containerName: "zen-root",
       }}
     >
+      <SidebarWidthToggle isWide={isWide} />
+      <style>{`
+        .zen-home-sidebar { position: relative; flex-shrink: 0; height: 100%; min-height: 0; }
+        .zen-sidebar-resizer { position: absolute; top: 0; right: -4px; bottom: 0; width: 8px; cursor: col-resize; z-index: 10; }
+        .zen-sidebar-resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background-color 0.15s ease; }
+        .zen-sidebar-resizer:hover::after, .zen-sidebar-resizer.dragging::after { background: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder, #3b82f6)); }
+        @container zen-root (max-width: 699px) {
+          .zen-home-sidebar { display: none; }
+        }
+        .zen-home-grid {
+          display: grid;
+          gap: 12px;
+          width: 100%;
+          align-content: start;
+          margin: 0 auto;
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-areas: "banner" "date" "stats" "dist" "usage" "recent";
+        }
+        .zen-home-recent { grid-area: recent; min-width: 0; display: none; }
+        @container zen-root (max-width: 699px) {
+          .zen-home-recent { display: block; }
+        }
+        .zen-home-banner { grid-area: banner; min-width: 0; }
+        .zen-home-banner:empty { display: none; }
+        .zen-home-date { grid-area: date; min-width: 0; }
+        .zen-home-stats { grid-area: stats; min-width: 0; }
+        .zen-home-dist { grid-area: dist; min-width: 0; }
+        .zen-home-usage { grid-area: usage; min-width: 0; }
+        .zen-home-ins { grid-area: ins; min-width: 0; display: none; }
+        .zen-home-prov { grid-area: prov; min-width: 0; display: none; }
+
+        .zen-home-top { grid-area: top; min-width: 0; display: none; }
+        .zen-home-dist > div,
+        .zen-home-usage > div,
+        .zen-home-ins > div,
+        .zen-home-top > div { height: 100%; }
+        @container zen (min-width: 900px) {
+          .zen-home-grid {
+            gap: 16px;
+            grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
+            grid-template-areas: "banner banner" "date date" "stats stats" "usage dist" "usage dist" "top top" "ins ins";
+          }
+          .zen-home-ins, .zen-home-top { display: block; }
+        }
+        @container zen (min-width: 1300px) {
+          .zen-home-grid {
+            max-width: 1440px;
+            grid-template-columns: minmax(0, 1.75fr) minmax(0, 0.75fr) minmax(0, 1fr);
+            grid-template-areas: "banner banner banner" "date date date" "stats stats stats" "usage usage dist" "usage usage dist" "top ins ins";
+          }
+        }
+      `}</style>
+      <div className="zen-home-sidebar" style={{ width: sidebarWidth }}>
+        <HomeSidebar
+          imagesUri={imagesUri}
+          version={(window as any).__zenVersion}
+          conversations={sortedConversations}
+          isLoading={isLoading}
+          onLoadConversation={stableOnLoadConversation}
+          providerFavicons={providerFavicons}
+        />
+        <div
+          className={`zen-sidebar-resizer${isResizing ? " dragging" : ""}`}
+          onMouseDown={handleResizeStart}
+          title="Drag to resize"
+        />
+      </div>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          containerType: "inline-size",
+          containerName: "zen",
+        }}
+      >
       {/* ─── Dashboard scroll area ─── */}
       <div
         style={{
@@ -599,113 +808,47 @@ const HomePanel: React.FC<HomePanelProps> = ({
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "flex-start",
-            padding: "32px 16px 20px 16px",
+            padding:
+              tier === "compact" ? "20px 10px 16px 10px" : "32px 16px 20px 16px",
             color: "var(--primary-text)",
             animation: "fadeIn 0.5s ease-out",
-            maxWidth: "680px",
+            maxWidth: "1200px",
             margin: "0 auto",
             width: "100%",
             boxSizing: "border-box",
           }}
         >
-          {/* Header */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "0",
-              textAlign: "center",
-              width: "100%",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-              <div
-                style={{
-                  width: "42px",
-                  height: "42px",
-                  borderRadius: "10px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <img
-                  src={`${imagesUri}/icon.png`}
-                  alt="Zen Logo"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                  }}
-                />
-              </div>
-              <h1
-                style={{
-                  fontSize: "30px",
-                  fontWeight: 800,
-                  margin: 0,
-                  background:
-                    "linear-gradient(to right, var(--vscode-foreground, #fff), var(--vscode-textPreformat-foreground, #a8a8a8))",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                Zen
-              </h1>
+          <HomeHeader imagesUri={imagesUri} />
+          <div className="zen-home-grid">
+            <div className="zen-home-banner">
+              <InstallationBanner isConnected={isConnected} />
+              <ZenUpdateBanner updateInfo={zenUpdateInfo} />
+              <AIWeb2APIUpdateBanner updateInfo={updateInfo} />
             </div>
 
-            <div
-              style={{
-                height: "28px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-                margin: "0 0 12px 0",
-              }}
-            >
-              <div
-                key={sloganIndex}
-                style={{
-                  fontSize: "14px",
-                  color: "var(--vscode-descriptionForeground, #888)",
-                  fontWeight: 500,
-                  animation: "slideUp 0.4s ease-out",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {SLOGANS[sloganIndex]}
-              </div>
-            </div>
 
-            <InstallationBanner isConnected={isConnected} />
-            <UpdateBanner updateInfo={updateInfo} />
+            <DashboardStats
+              todayTokens={todayTokens}
+              todayRequests={todayRequests}
+              favoriteModel={favoriteModel}
+              totalAccounts={totalAccounts}
+              modelDistribution={modelDistribution}
+              providerFavicons={providerFavicons}
+              dailyUsage={dailyUsage}
+              accounts={accounts}
+              statsPeriod={statsPeriod}
+            />
+
+            {/* Lịch sử: chỉ hiện khi HomeSidebar bị ẩn (< 700px) */}
+            <div className="zen-home-recent">
+              <RecentActivity
+                conversations={sortedConversations}
+                isLoading={isLoading}
+                onLoadConversation={stableOnLoadConversation}
+                providerFavicons={providerFavicons}
+              />
+            </div>
           </div>
-
-          {/* ─── Period picker ─── */}
-          <StatsPeriodPicker
-            period={statsPeriod}
-            offset={statsOffset}
-            onPeriodChange={setStatsPeriod}
-            onOffsetChange={setStatsOffset}
-          />
-
-          {/* Dashboard content */}
-          <DashboardStats
-            todayTokens={todayTokens}
-            todayRequests={todayRequests}
-            favoriteModel={favoriteModel}
-            totalAccounts={totalAccounts}
-            modelDistribution={modelDistribution}
-            providerFavicons={providerFavicons}
-            dailyUsage={dailyUsage}
-            sortedConversations={sortedConversations}
-            isLoading={isLoading}
-            onLoadConversation={stableOnLoadConversation}
-            statsPeriod={statsPeriod}
-          />
 
           <style>{`
             @keyframes fadeIn {
@@ -745,6 +888,22 @@ const HomePanel: React.FC<HomePanelProps> = ({
         style={{ display: "none" }}
         onChange={handleExternalFileInputChange}
       />
+      {/* Wrapper cùng max-width/padding với dashboard để input thẳng hàng với content */}
+      <div
+        style={{
+          width: "100%",
+          backgroundColor: "var(--secondary-bg)",
+          flexShrink: 0,
+        }}
+      >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "1200px",
+          margin: "0 auto",
+          boxSizing: "border-box",
+        }}
+      >
       <FilesPreviews
         uploadedFiles={uploadedFiles}
         attachedItems={attachedItems}
@@ -813,6 +972,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
           toggleConversationToolFormat();
         }}
       />
+      </div>
+      </div>
+      </div>
     </div>
   );
 };

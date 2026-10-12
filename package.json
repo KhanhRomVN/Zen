@@ -2,7 +2,7 @@
   "name": "khanhromvn-zen",
   "displayName": "Zen - Free AI Chat For ALL LLM",
   "description": "A powerful VSCode extension that brings AI chat capabilities directly into your development environment",
-  "version": "2.4.4",
+  "version": "2.4.9",
   "publisher": "KhanhRomVN",
   "license": "MIT",
   "capabilities": {
@@ -119,7 +119,7 @@
         },
         {
           "command": "zen.history",
-          "when": "view == zen-chat",
+          "when": "view == zen-chat && !zen.historySidebarVisible",
           "group": "navigation",
           "icon": "$(history)"
         },

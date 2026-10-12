@@ -6,8 +6,9 @@
  * tổng tokens, API requests, favorite model, và tổng tài khoản.
 
  * Main features:
- * - Hiển thị dạng 2x2 grid, mỗi box layout dọc: icon → value → name
- * - Text % thay đổi ở góc phải (green/red theo dương/âm)
+ * - Hẹp: 2x2 grid, mỗi box layout dọc: icon → value → name
+ * - Vừa (>=560px): box layout ngang icon + text
+ * - Wide (>=900px): 4 cột, box lớn hơn, viền, label trên value, % dạng pill
  * - Giá trị động từ props
  * ------------------------------------------------------------------
  */
@@ -45,7 +46,7 @@ const StatsGrid: React.FC<StatsGridProps> = ({
       value: todayTokens.toLocaleString(),
       label: "Total Tokens",
       percent: percentChanges[0],
-      valueStyle: { fontSize: "16px", fontWeight: 700 } as React.CSSProperties,
+      isModel: false,
     },
     {
       icon: <Zap size={16} />,
@@ -54,7 +55,7 @@ const StatsGrid: React.FC<StatsGridProps> = ({
       value: String(todayRequests),
       label: "API Requests",
       percent: percentChanges[1],
-      valueStyle: { fontSize: "16px", fontWeight: 700 } as React.CSSProperties,
+      isModel: false,
     },
     {
       icon: <Brain size={16} />,
@@ -63,12 +64,7 @@ const StatsGrid: React.FC<StatsGridProps> = ({
       value: favoriteModel,
       label: "Favorite Model",
       percent: null,
-      valueStyle: {
-        fontSize: "13px",
-        fontWeight: 700,
-        lineHeight: 1.2,
-        wordBreak: "break-all",
-      } as React.CSSProperties,
+      isModel: true,
     },
     {
       icon: <Users size={16} />,
@@ -77,43 +73,75 @@ const StatsGrid: React.FC<StatsGridProps> = ({
       value: String(totalAccounts),
       label: "Total Accounts",
       percent: percentChanges[3],
-      valueStyle: { fontSize: "16px", fontWeight: 700 } as React.CSSProperties,
+      isModel: false,
     },
   ];
+
+  const styles = `
+    .zen-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .zen-stat {
+      position: relative; display: flex; flex-direction: column; gap: 6px;
+      padding: 14px; border-radius: 8px;
+      transition: transform 0.2s ease;
+    }
+    .zen-stat-txt { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .zen-stat-icon {
+      width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .zen-stat-value { font-size: 16px; font-weight: 700; }
+    .zen-stat-value.is-model { font-size: 13px; line-height: 1.2; word-break: break-all; }
+    .zen-stat-label { font-size: 10px; font-weight: 500; color: var(--vscode-descriptionForeground); }
+    .zen-stat-pct { position: absolute; top: 12px; right: 12px; font-size: 10px; font-weight: 600; }
+    @container zen (max-width: 339px) {
+      .zen-stats-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+    @container zen (min-width: 560px) {
+      .zen-stat { flex-direction: row; align-items: center; gap: 10px; }
+    }
+    @container zen (min-width: 760px) {
+      .zen-stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    /* Wide: box lớn hơn, có viền, label nằm trên value, % dạng pill */
+    @container zen (min-width: 900px) {
+      .zen-stats-grid { gap: 16px !important; }
+      .zen-stat { gap: 14px; padding: 14px; border-radius: 8px; }
+      .zen-stat-icon { width: 44px; height: 44px; border-radius: 10px; }
+      .zen-stat-icon svg { width: 20px; height: 20px; }
+      .zen-stat-txt { flex-direction: column-reverse; gap: 4px; }
+      .zen-stat-value { font-size: 22px; letter-spacing: -0.01em; }
+      .zen-stat-value.is-model { font-size: 15px; }
+      .zen-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+      .zen-stat-pct {
+        top: 14px; right: 14px; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+        background: color-mix(in srgb, currentColor 14%, transparent);
+      }
+    }
+  `;
 
   // ── Render ──
   return (
     <div
+      className="zen-stats-grid"
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(2, 1fr)",
         gap: "10px",
         width: "100%",
       }}
     >
+      <style>{styles}</style>
       {cards.map((card, i) => (
         <div
           key={i}
-          className="dashboard-card"
+          className="dashboard-card zen-stat"
           style={{
-            position: "relative",
             backgroundColor: "var(--vscode-editor-background, #1e1e1e)",
-            borderRadius: "8px",
-            padding: "12px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-            transition: "transform 0.2s ease",
           }}
         >
           {card.percent !== null && card.percent !== undefined && (
             <span
+              className="zen-stat-pct"
               style={{
-                position: "absolute",
-                top: "12px",
-                right: "12px",
-                fontSize: "10px",
-                fontWeight: 600,
                 color:
                   card.percent >= 0
                     ? "var(--vscode-gitDecoration-addedResourceForeground, #10b981)"
@@ -126,32 +154,18 @@ const StatsGrid: React.FC<StatsGridProps> = ({
           )}
 
           <div
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "6px",
-              backgroundColor: card.iconBg,
-              color: card.iconColor,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
+            className="zen-stat-icon"
+            style={{ backgroundColor: card.iconBg, color: card.iconColor }}
           >
             {card.icon}
           </div>
 
-          <span style={card.valueStyle}>{card.value}</span>
-
-          <span
-            style={{
-              fontSize: "10px",
-              color: "var(--vscode-descriptionForeground)",
-              fontWeight: 500,
-            }}
-          >
-            {card.label}
-          </span>
+          <div className="zen-stat-txt">
+            <span className={`zen-stat-value${card.isModel ? " is-model" : ""}`}>
+              {card.value}
+            </span>
+            <span className="zen-stat-label">{card.label}</span>
+          </div>
         </div>
       ))}
     </div>

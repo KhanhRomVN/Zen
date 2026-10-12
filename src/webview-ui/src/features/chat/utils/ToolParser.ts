@@ -16,6 +16,42 @@ export const CONTENT_PARAMS = new Set([
   "new",
 ]);
 
+/**
+ * Heuristic: check whether a position in `str` falls inside an unterminated
+ * single-quote or double-quote span that started AFTER `fromIdx`. Used to
+ * distinguish real XML/JSON closing delimiters from literal `</tag>` strings
+ * embedded inside shell commands or code content.
+ *
+ * Returns true if the char at `pos` is inside an open quote region.
+ */
+const isInsideUnterminatedQuote = (
+  str: string,
+  pos: number,
+  fromIdx: number,
+): boolean => {
+  let inSingle = false;
+  let inDouble = false;
+  let escape = false;
+
+  for (let i = fromIdx; i < pos; i++) {
+    const ch = str[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escape = true;
+      continue;
+    }
+    if (!inDouble && ch === "'") {
+      inSingle = !inSingle;
+    } else if (!inSingle && ch === '"') {
+      inDouble = !inDouble;
+    }
+  }
+  return inSingle || inDouble;
+};
+
 export const extractParamValue = (
   content: string,
   paramName: string,
@@ -59,6 +95,18 @@ export const extractParamValue = (
           searchIndex = nextOpening + 1;
         }
       } else {
+        // Candidate closing tag found — but skip it if it lies inside an
+        // unterminated quote span (heuristic for shell commands / code that
+        // embeds literal "</tag>" strings). Only apply this guard when we're
+        // at depth===1 (the outermost match); nested opens still count normally.
+        if (
+          depth === 1 &&
+          isInsideUnterminatedQuote(content, nextClosing, startIndex)
+        ) {
+          searchIndex = nextClosing + closingTag.length;
+          continue;
+        }
+
         // Found a closing tag
         depth--;
         if (depth === 0) {

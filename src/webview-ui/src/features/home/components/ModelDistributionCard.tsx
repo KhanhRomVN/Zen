@@ -2,19 +2,24 @@
  * ------------------------------------------------------------------
  * ModelDistributionCard
  * ------------------------------------------------------------------
- * Biểu đồ tròn hiển thị phân bố requests theo model.
- * Kèm danh sách model bên cạnh với tỷ lệ phần trăm.
-
+ * Card phân bố requests theo model: donut chart + danh sách model.
+ *
  * Main features:
- * - Donut chart với màu riêng cho từng model
- * - Tooltip hiển thị chi tiết requests/tokens khi hover
- * - Expand/collapse danh sách model khi > 4 items
+ * - Layout theo bề rộng của chính card (container query):
+ *   hẹp → donut ở trên, danh sách ở dưới; rộng → donut trái, danh sách phải
+ * - Donut có khe hở giữa các cung, tâm hiển thị tổng requests
+ * - Mỗi model là một dòng: màu + favicon + tên + % + thanh tỷ lệ + req/tokens
+ * - Hover dòng ↔ hover cung: highlight hai chiều, tâm donut hiện % của model
+ * - Nội dung được canh giữa theo chiều dọc, không bị trống nửa dưới card
  * ------------------------------------------------------------------
  */
 
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── React ──
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+
+// ── Components ──
+import { formatTokens } from "./TokensByProviderCard";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface ModelEntry {
@@ -31,12 +36,6 @@ interface Props {
   emptyText: string;
 }
 
-interface TooltipState {
-  index: number;
-  x: number;
-  y: number;
-}
-
 // ─── Constants ──────────────────────────────────────────────────────────
 const COLORS = [
   "var(--vscode-textLink-foreground, #3b82f6)",
@@ -45,12 +44,14 @@ const COLORS = [
   "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
   "var(--vscode-errorForeground, #f43f5e)",
 ];
-const COLLAPSE_THRESHOLD = 4;
-const SIZE = 96;
-const STROKE = 11;
+const SIZE = 120;
+const STROKE = 12;
 const R = (SIZE - STROKE) / 2;
 const CIRC = 2 * Math.PI * R;
-const GAP_DEG = 0;
+const ARC_GAP = 2; // khe hở giữa các cung (đơn vị chiều dài cung)
+const ROW_H = 48; // chiều cao cố định mỗi dòng model (px)
+const ROW_GAP = 2; // khoảng cách giữa các dòng (px)
+const MAX_VISIBLE = 3; // số dòng tối đa hiển thị, vượt quá thì cuộn trong danh sách
 
 // ─── Component ──────────────────────────────────────────────────────────
 const ModelDistributionCard: React.FC<Props> = ({
@@ -60,289 +61,298 @@ const ModelDistributionCard: React.FC<Props> = ({
   emptyText,
 }) => {
   // ── State ──
-  const [expanded, setExpanded] = useState(false);
-  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
 
   // ── Derived ──
-  const total =
-    modelDistribution.reduce((s, m) => s + m.total_requests, 0) || 1;
-  const visible = expanded
-    ? modelDistribution
-    : modelDistribution.slice(0, COLLAPSE_THRESHOLD);
-  const hasMore = modelDistribution.length > COLLAPSE_THRESHOLD;
+  const n = modelDistribution.length;
+  const total = modelDistribution.reduce((s, m) => s + m.total_requests, 0);
+  const safeTotal = total || 1;
 
-  // Build SVG arcs
-  const arcs = (() => {
-    if (modelDistribution.length === 0) return [];
-    const gapRad = (GAP_DEG / 360) * CIRC;
-    const totalGap = gapRad * modelDistribution.length;
-    const usable = CIRC - totalGap;
-    let offset = 0; // start from top (rotate -90 applied on group)
+  const arcs = useMemo(() => {
+    const gap = n > 1 ? ARC_GAP : 0;
+    let offset = 0;
     return modelDistribution.map((m, i) => {
-      const dash = (m.total_requests / total) * usable;
-      const arc = {
-        index: i,
-        dash,
-        gap: CIRC - dash,
-        offset,
-        color: COLORS[i % COLORS.length],
-        model: m,
-      };
-      offset += dash + gapRad;
+      const slice = (m.total_requests / safeTotal) * CIRC;
+      const dash = Math.max(slice - gap, 0);
+      const arc = { i, dash, offset: offset + gap / 2, color: COLORS[i % COLORS.length] };
+      offset += slice;
       return arc;
     });
-  })();
+  }, [modelDistribution, safeTotal, n]);
 
   const cx = SIZE / 2;
-  const cy = SIZE / 2;
+  const hoveredModel = hovered !== null ? modelDistribution[hovered] : null;
 
   // ── Render ──
   return (
     <div
+      className="zen-dist"
       style={{
         backgroundColor: "var(--vscode-editor-background, #1e1e1e)",
         borderRadius: "8px",
         padding: "14px",
         boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px",
+        containerType: "inline-size",
+        containerName: "zen-dist",
       }}
     >
-      {/* Title */}
+      <style>{`
+        .zen-dist-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; min-height: 0; }
+        .zen-dist-donut { width: 112px; height: 112px; flex-shrink: 0; display: block; }
+        .zen-dist-list {
+          width: 100%; display: flex; flex-direction: column; gap: ${ROW_GAP}px; min-width: 0;
+          max-height: ${MAX_VISIBLE * ROW_H + (MAX_VISIBLE - 1) * ROW_GAP}px;
+          overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+          scrollbar-width: thin; scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(128,128,128,0.4)) transparent;
+        }
+        .zen-dist-list::-webkit-scrollbar { width: 6px; }
+        .zen-dist-list::-webkit-scrollbar-track { background: transparent; }
+        .zen-dist-list::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background, rgba(128,128,128,0.4)); border-radius: 3px; }
+        .zen-dist-list::-webkit-scrollbar-thumb:hover { background: var(--vscode-scrollbarSlider-hoverBackground, rgba(128,128,128,0.6)); }
+        @container zen-dist (min-width: 400px) {
+          .zen-dist-body { flex-direction: row; gap: 20px; }
+          .zen-dist-donut { width: 128px; height: 128px; }
+          .zen-dist-list { flex: 1; width: auto; }
+        }
+        .zen-dist-row { transition: background-color 0.15s ease, opacity 0.15s ease; }
+      `}</style>
+
+      {/* Header */}
       <div
         style={{
-          fontSize: "11px",
-          fontWeight: 600,
-          color: "var(--vscode-foreground)",
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-          marginBottom: "12px",
-          opacity: 0.8,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "8px",
         }}
       >
-        {title}
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 600,
+            color: "var(--vscode-foreground)",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            opacity: 0.8,
+          }}
+        >
+          {title}
+        </div>
+        {n > 0 && (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 600,
+              padding: "2px 8px",
+              borderRadius: "5px",
+              color: "var(--vscode-descriptionForeground)",
+              backgroundColor:
+                "color-mix(in srgb, var(--vscode-foreground) 6%, transparent)",
+            }}
+          >
+            {n} {n === 1 ? "model" : "models"}
+          </span>
+        )}
       </div>
 
-      {modelDistribution.length === 0 ? (
+      {n === 0 ? (
         <span style={{ fontSize: "11px", opacity: 0.5, fontStyle: "italic" }}>
           {emptyText}
         </span>
       ) : (
-        <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
-          {/* Circle */}
-          <div style={{ position: "relative", flexShrink: 0 }}>
-            <svg width={SIZE} height={SIZE} style={{ display: "block" }}>
-              {/* Track */}
-              <circle
-                cx={cx}
-                cy={cy}
-                r={R}
-                fill="none"
-                stroke="var(--vscode-widget-border, rgba(128,128,128,0.15))"
-                strokeWidth={STROKE}
-              />
-              {/* Arcs */}
-              <g transform={`rotate(-90 ${cx} ${cy})`}>
-                {arcs.map((arc) => (
+        <div className="zen-dist-body">
+          {/* Donut */}
+          <svg
+            className="zen-dist-donut"
+            viewBox={`0 0 ${SIZE} ${SIZE}`}
+            onMouseLeave={() => setHovered(null)}
+          >
+            <circle
+              cx={cx}
+              cy={cx}
+              r={R}
+              fill="none"
+              stroke="var(--vscode-widget-border, rgba(128,128,128,0.15))"
+              strokeWidth={STROKE}
+            />
+            <g transform={`rotate(-90 ${cx} ${cx})`}>
+              {arcs.map((a) => {
+                const active = hovered === a.i;
+                return (
                   <circle
-                    key={arc.index}
+                    key={a.i}
                     cx={cx}
-                    cy={cy}
+                    cy={cx}
                     r={R}
                     fill="none"
-                    stroke={arc.color}
-                    strokeWidth={STROKE}
-                    strokeDasharray={`${arc.dash} ${arc.gap}`}
-                    strokeDashoffset={-arc.offset}
+                    stroke={a.color}
+                    strokeWidth={active ? STROKE + 3 : STROKE}
+                    strokeDasharray={`${a.dash} ${CIRC - a.dash}`}
+                    strokeDashoffset={-a.offset}
                     strokeLinecap="butt"
-                    style={{ cursor: "pointer" }}
-                    onMouseEnter={(e) => {
-                      const rect = (
-                        e.currentTarget.closest("svg") as SVGSVGElement
-                      ).getBoundingClientRect();
-                      setTooltip({
-                        index: arc.index,
-                        x: rect.left + SIZE / 2,
-                        y: rect.top,
-                      });
-                    }}
-                    onMouseLeave={() => setTooltip(null)}
-                  />
-                ))}
-              </g>
-              {/* Center label */}
-              <text
-                x={cx}
-                y={cy - 6}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                style={{
-                  fontSize: "17px",
-                  fontWeight: 700,
-                  fill: "var(--vscode-foreground)",
-                }}
-              >
-                {modelDistribution.length}
-              </text>
-              <text
-                x={cx}
-                y={cy + 11}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                style={{
-                  fontSize: "10px",
-                  fill: "var(--vscode-descriptionForeground)",
-                }}
-              >
-                models
-              </text>
-            </svg>
-
-            {/* Tooltip */}
-            {tooltip !== null &&
-              (() => {
-                const m = modelDistribution[tooltip.index];
-                const pct = Math.round((m.total_requests / total) * 100);
-                return (
-                  <div
+                    opacity={hovered === null || active ? 1 : 0.4}
                     style={{
-                      position: "fixed",
-                      left: tooltip.x,
-                      top: tooltip.y - 8,
-                      transform: "translate(-50%, -100%)",
-                      backgroundColor:
-                        "var(--vscode-editorHoverWidget-background, #1e1e1e)",
-                      border:
-                        "1px solid var(--vscode-editorHoverWidget-border, rgba(128,128,128,0.3))",
-                      borderRadius: "6px",
-                      padding: "7px 10px",
-                      fontSize: "11px",
-                      color: "var(--vscode-foreground)",
-                      pointerEvents: "none",
-                      zIndex: 9999,
-                      whiteSpace: "nowrap",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                      cursor: "pointer",
+                      transition: "stroke-width 0.15s ease, opacity 0.15s ease",
                     }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: "50%",
-                          backgroundColor:
-                            COLORS[tooltip.index % COLORS.length],
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span style={{ fontWeight: 600 }}>{m.model_id}</span>
-                    </div>
-                    <div style={{ opacity: 0.75, lineHeight: 1.6 }}>
-                      <div>
-                        {m.total_requests} requests ({pct}%)
-                      </div>
-                      <div>{m.total_tokens.toLocaleString()} tokens</div>
-                      <div style={{ fontSize: "10px", opacity: 0.6 }}>
-                        {m.provider_id}
-                      </div>
-                    </div>
-                  </div>
+                    onMouseEnter={() => setHovered(a.i)}
+                  />
                 );
-              })()}
-          </div>
+              })}
+            </g>
+            <text
+              x={cx}
+              y={cx - 5}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              style={{ fontSize: "20px", fontWeight: 700, fill: "var(--vscode-foreground)" }}
+            >
+              {hoveredModel
+                ? `${Math.round((hoveredModel.total_requests / safeTotal) * 100)}%`
+                : formatTokens(total)}
+            </text>
+            <text
+              x={cx}
+              y={cx + 14}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              style={{ fontSize: "10px", fill: "var(--vscode-descriptionForeground)" }}
+            >
+              {hoveredModel ? `${hoveredModel.total_requests} req` : "requests"}
+            </text>
+          </svg>
 
-          {/* Model list — grid */}
+          {/* List */}
           <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "8px",
-              alignContent: "start",
-            }}
+            className="zen-dist-list"
+            style={n > MAX_VISIBLE ? { paddingRight: "4px" } : undefined}
+            onMouseLeave={() => setHovered(null)}
           >
-            {visible.map((m, i) => {
-              const pct = Math.round((m.total_requests / total) * 100);
+            {modelDistribution.map((m, i) => {
+              const pct = (m.total_requests / safeTotal) * 100;
+              const color = COLORS[i % COLORS.length];
               const favicon = providerFavicons[m.provider_id];
-              const isLong = m.model_id.length > 18;
+              const active = hovered === i;
               return (
                 <div
-                  key={m.model_id}
+                  key={`${m.provider_id}:${m.model_id}`}
+                  className="zen-dist-row"
+                  title={`${m.model_id} · ${m.provider_id}\n${m.total_requests} requests · ${m.total_tokens.toLocaleString()} tokens`}
+                  onMouseEnter={() => setHovered(i)}
                   style={{
+                    height: `${ROW_H}px`,
+                    flexShrink: 0,
+                    boxSizing: "border-box",
                     display: "flex",
-                    alignItems: "center",
-                    gap: "5px",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    padding: "6px 8px",
+                    borderRadius: "6px",
+                    backgroundColor: active
+                      ? "color-mix(in srgb, var(--vscode-foreground) 6%, transparent)"
+                      : "transparent",
+                    opacity: hovered === null || active ? 1 : 0.55,
                     minWidth: 0,
-                    ...(isLong ? { gridColumn: "1 / -1" } : {}),
                   }}
                 >
                   <div
                     style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      backgroundColor: COLORS[i % COLORS.length],
-                      flexShrink: 0,
-                    }}
-                  />
-                  {favicon && (
-                    <img
-                      src={favicon}
-                      alt=""
-                      width={13}
-                      height={13}
-                      style={{ borderRadius: "2px", flexShrink: 0 }}
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display =
-                          "none";
-                      }}
-                    />
-                  )}
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 500,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      minWidth: 0,
                     }}
                   >
-                    {m.model_id}{" "}
-                    <span style={{ opacity: 0.6, fontWeight: 400 }}>
-                      {pct}%
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "2px",
+                        backgroundColor: color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    {favicon && (
+                      <img
+                        src={favicon}
+                        alt=""
+                        width={13}
+                        height={13}
+                        style={{ borderRadius: "2px", flexShrink: 0 }}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    )}
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontSize: "12px",
+                        fontWeight: 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {m.model_id}
                     </span>
-                  </span>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        fontVariantNumeric: "tabular-nums",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {Math.round(pct)}%
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1fr) auto",
+                      alignItems: "center",
+                      gap: "10px",
+                      marginTop: "5px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "4px",
+                        borderRadius: "2px",
+                        overflow: "hidden",
+                        backgroundColor:
+                          "var(--vscode-widget-border, rgba(128,128,128,0.15))",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${pct}%`,
+                          height: "100%",
+                          backgroundColor: color,
+                          borderRadius: "2px",
+                        }}
+                      />
+                    </div>
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "var(--vscode-descriptionForeground)",
+                        fontVariantNumeric: "tabular-nums",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {m.total_requests} req · {formatTokens(m.total_tokens)}
+                    </span>
+                  </div>
                 </div>
               );
             })}
-
-            {hasMore && (
-              <button
-                onClick={() => setExpanded((v) => !v)}
-                style={{
-                  gridColumn: "1 / -1",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "11px",
-                  color: "var(--vscode-textLink-foreground, #3b82f6)",
-                  padding: "2px 0",
-                  textAlign: "left",
-                  marginTop: "2px",
-                }}
-              >
-                {expanded
-                  ? "▲ Show less"
-                  : `▼ +${modelDistribution.length - COLLAPSE_THRESHOLD} more`}
-              </button>
-            )}
           </div>
         </div>
       )}

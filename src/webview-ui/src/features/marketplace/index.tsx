@@ -357,6 +357,7 @@ const MarketplacePanel: React.FC<MarketplacePanelProps> = ({
         bottom: 0,
         width: "100%",
         height: "100%",
+        borderTop: "1px solid var(--border-color)",
         backgroundColor: "var(--secondary-bg)",
         zIndex: 1000,
         display: "flex",

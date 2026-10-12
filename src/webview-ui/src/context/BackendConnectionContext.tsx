@@ -48,7 +48,7 @@ function parseSemver(v: string): [number, number, number] | null {
   return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
 }
 
-function isOutdated(current: string, latest: string): boolean {
+export function isOutdated(current: string, latest: string): boolean {
   const c = parseSemver(current);
   const l = parseSemver(latest);
   if (!c || !l) return false;

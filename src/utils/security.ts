@@ -171,13 +171,14 @@ export class SecurityValidator {
       }
     }
 
-    // Check elevated privilege patterns
+    // Check elevated privilege patterns — flagged as "dangerous" so the UI can
+    // show a warning + Cancel/Proceed dialog instead of silently blocking.
     for (const pattern of this.ELEVATION_PATTERNS) {
       if (pattern.test(command)) {
         return {
           safe: false,
           reason:
-            "Command rejected: elevated privilege commands (sudo, su, doas) are blocked",
+            "This command requires elevated privileges (sudo/su/doas). Confirm before continuing?",
         };
       }
     }

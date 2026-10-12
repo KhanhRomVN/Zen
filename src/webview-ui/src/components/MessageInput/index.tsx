@@ -140,13 +140,13 @@ const useCooldownTimer = (
     }
 
     let rafId: number;
-    
+
     const tick = () => {
       const elapsed = Date.now() - lastResponseEndTime;
       const left = Math.max(0, cooldownMs - elapsed);
-      
+
       // Chỉ update state nếu giá trị thay đổi đáng kể hoặc về 0 để tránh re-render vô ích
-      setRemaining(prev => {
+      setRemaining((prev) => {
         if (prev === left) return prev;
         return left;
       });
@@ -899,8 +899,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     // ─── Anti-System-Prompt-Injection detection ──────────────────────
     // Cờ này lấy từ backend constant (claude.constant.ts). Nếu false (comment out),
     // toàn bộ cơ chế đặc thù (zip badge, ẩn dropdown, prompt riêng) sẽ tắt theo.
-    const isAntiInjectionProvider =
-      !!(currentProviderConfig as any)?.anti_system_prompt_injection;
+    const isAntiInjectionProvider = !!(currentProviderConfig as any)
+      ?.anti_system_prompt_injection;
 
     // ─── Workspace zip-size badge ────────────────────────────────────
     // Chỉ kích hoạt khi provider có anti-injection flag = true.
@@ -910,7 +910,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       if (!isAntiInjectionProvider || !rootPath) return null;
       return `${rootPath}::${currentModel?.id ?? ""}`;
     }, [isAntiInjectionProvider, rootPath, currentModel?.id]);
-    const zipSizeState = useWorkspaceZipSize(isAntiInjectionProvider, zipTriggerKey);
+    const zipSizeState = useWorkspaceZipSize(
+      isAntiInjectionProvider,
+      zipTriggerKey,
+    );
 
     // ─── View-only mode detection ────────────────────────────────────
     // Hai trường hợp view-only:
@@ -1406,7 +1409,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     return (
       <div
         style={{
-          padding: "var(--spacing-md) var(--spacing-lg)",
+          padding: "var(--spacing-md) 0",
           backgroundColor: "var(--secondary-bg)",
           position: "relative",
         }}
@@ -1444,35 +1447,48 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             }}
           >
             {/* Border Depletion Progress — conic-gradient driven by cooldown timer */}
-            {isCoolingDown && !isViewOnly && !isStreaming && !isProcessing && isConnected && !isTimeBlocked && !isTokenLimitExceeded && (() => {
-              // remainingRatio: 1 at start → 0 when finished
-              const remainingRatio = effectiveCooldownMs > 0
-                ? Math.max(0, Math.min(1, cooldownRemaining / effectiveCooldownMs))
-                : 0;
-              // Angle of the visible arc (clockwise from top-left)
-              const deg = remainingRatio * 360;
-              // Muted primary color (~50% opacity)
-              const borderColor = "color-mix(in srgb, var(--vscode-textLink-foreground, #007acc) 50%, transparent)";
+            {isCoolingDown &&
+              !isViewOnly &&
+              !isStreaming &&
+              !isProcessing &&
+              isConnected &&
+              !isTimeBlocked &&
+              !isTokenLimitExceeded &&
+              (() => {
+                // remainingRatio: 1 at start → 0 when finished
+                const remainingRatio =
+                  effectiveCooldownMs > 0
+                    ? Math.max(
+                        0,
+                        Math.min(1, cooldownRemaining / effectiveCooldownMs),
+                      )
+                    : 0;
+                // Angle of the visible arc (clockwise from top-left)
+                const deg = remainingRatio * 360;
+                // Muted primary color (~50% opacity)
+                const borderColor =
+                  "color-mix(in srgb, var(--vscode-textLink-foreground, #007acc) 50%, transparent)";
 
-              return (
-                <div
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    borderRadius: "var(--border-radius)",
-                    padding: "1px",
-                    // Arc drawn clockwise starting from top-left (-90deg origin in conic space)
-                    background: `conic-gradient(from -90deg at 50% 50%, ${borderColor} 0deg, ${borderColor} ${deg}deg, transparent ${deg}deg, transparent 360deg)`,
-                    WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-                    WebkitMaskComposite: "xor",
-                    maskComposite: "exclude",
-                    pointerEvents: "none",
-                    zIndex: 5,
-                  }}
-                />
-              );
-            })()}
+                return (
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      borderRadius: "var(--border-radius)",
+                      padding: "1px",
+                      // Arc drawn clockwise starting from top-left (-90deg origin in conic space)
+                      background: `conic-gradient(from -90deg at 50% 50%, ${borderColor} 0deg, ${borderColor} ${deg}deg, transparent ${deg}deg, transparent 360deg)`,
+                      WebkitMask:
+                        "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+                      WebkitMaskComposite: "xor",
+                      maskComposite: "exclude",
+                      pointerEvents: "none",
+                      zIndex: 5,
+                    }}
+                  />
+                );
+              })()}
             {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
             {!isConversationStarted && (
               <div
@@ -2149,7 +2165,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 justifyContent: "space-between",
                 alignItems: "center",
                 pointerEvents:
-                  !isConnected || isTimeBlocked || isViewOnlyProvider || isCoolingDown
+                  !isConnected ||
+                  isTimeBlocked ||
+                  isViewOnlyProvider ||
+                  isCoolingDown
                     ? "none"
                     : undefined,
               }}
@@ -2300,58 +2319,52 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       setPromptLengthMode(mode);
                     }}
                     isNoneOnly={isAntiInjectionProvider}
-                      triggerButton={(() => {
-                        const meta =
-                          PROMPT_LENGTH_MODE_META.find(
-                            (m) => m.key === promptLengthMode,
-                          ) ?? PROMPT_LENGTH_MODE_META[3];
-                        return (
-                          <SimpleTooltip
-                            content={
-                              <TooltipCard>
-                                <TooltipRow
-                                  label="Prompt Length"
-                                  value={meta.label}
-                                  color={meta.color}
-                                />
-                              </TooltipCard>
-                            }
-                          >
-                            <button
-                              onMouseEnter={() =>
-                                setIsPromptLengthHovered(true)
-                              }
-                              onMouseLeave={() =>
-                                setIsPromptLengthHovered(false)
-                              }
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                height: "24px",
-                                width: "24px",
-                                boxSizing: "border-box",
-                                borderRadius: "5px",
-                                cursor: "pointer",
-                                transition: "all 0.15s ease-in-out",
-                                border: "1px solid transparent",
-                                background: isPromptLengthHovered
-                                  ? "rgba(128, 128, 128, 0.16)"
-                                  : "transparent",
-                                color: meta.color,
-                                opacity: 1,
-                                padding: 0,
-                              }}
-                            >
-                              <PromptLengthTriggerIcon
-                                mode={promptLengthMode}
+                    triggerButton={(() => {
+                      const meta =
+                        PROMPT_LENGTH_MODE_META.find(
+                          (m) => m.key === promptLengthMode,
+                        ) ?? PROMPT_LENGTH_MODE_META[3];
+                      return (
+                        <SimpleTooltip
+                          content={
+                            <TooltipCard>
+                              <TooltipRow
+                                label="Prompt Length"
+                                value={meta.label}
+                                color={meta.color}
                               />
-                            </button>
-                          </SimpleTooltip>
-                        );
-                      })()}
-                    />
-                  )}
+                            </TooltipCard>
+                          }
+                        >
+                          <button
+                            onMouseEnter={() => setIsPromptLengthHovered(true)}
+                            onMouseLeave={() => setIsPromptLengthHovered(false)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              height: "24px",
+                              width: "24px",
+                              boxSizing: "border-box",
+                              borderRadius: "5px",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease-in-out",
+                              border: "1px solid transparent",
+                              background: isPromptLengthHovered
+                                ? "rgba(128, 128, 128, 0.16)"
+                                : "transparent",
+                              color: meta.color,
+                              opacity: 1,
+                              padding: 0,
+                            }}
+                          >
+                            <PromptLengthTriggerIcon mode={promptLengthMode} />
+                          </button>
+                        </SimpleTooltip>
+                      );
+                    })()}
+                  />
+                )}
 
                 {/* Diagnostic và Skill toggles đã được chuyển vào ActionDropdown */}
               </div>
@@ -2416,7 +2429,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 })()}
 
                 {/* Workspace zip-size badge — chỉ hiện khi provider có anti-injection flag = true */}
-                {isAntiInjectionProvider && <ClaudeZipBadge state={zipSizeState} />}
+                {isAntiInjectionProvider && (
+                  <ClaudeZipBadge state={zipSizeState} />
+                )}
 
                 {/* View Only badge — chiếm chỗ token counter khi isViewOnly */}
                 {isViewOnly && (
@@ -2445,8 +2460,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     View Only
                   </div>
                 )}
-
-
 
                 {/* Token Count Badge / Stop Button — ẩn khi isViewOnly */}
                 {isConnected && !isViewOnly && (
@@ -2506,7 +2519,11 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         return;
                       }
 
-                      if (isTokenLimitExceeded || isTimeBlocked || isCoolingDown) {
+                      if (
+                        isTokenLimitExceeded ||
+                        isTimeBlocked ||
+                        isCoolingDown
+                      ) {
                         // Don't send when limit exceeded, time-blocked, or cooling down
                         return;
                       }

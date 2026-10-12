@@ -102,6 +102,19 @@ export const useToolExecution = ({
     >
   >({});
 
+  // State for dangerous command warnings (sudo, rm -rf /, etc.)
+  const [dangerousCommands, setDangerousCommands] = useState<
+    Record<
+      string,
+      {
+        actionId: string;
+        commandText: string;
+        folderPath?: string;
+        reason: string;
+      }
+    >
+  >({});
+
   const clickedActionsRef = useRef<Set<string>>(new Set());
   const toolOutputsRef = useRef(toolOutputs);
   const pendingToolResolvers = useRef<
@@ -237,6 +250,21 @@ export const useToolExecution = ({
               isError: !!message.error,
             },
           }));
+        }
+      } else if (message.command === "dangerousCommandDetected") {
+        // Lệnh nguy hiểm được phát hiện — hiển thị cảnh báo + Cancel/Proceed
+        if (message.actionId) {
+          const newEntry = {
+            actionId: message.actionId,
+            commandText: message.commandText,
+            folderPath: message.folderPath,
+            reason: message.reason,
+          };
+
+          setDangerousCommands((prev) => {
+            const nextState = { ...prev, [message.actionId]: newEntry };
+            return nextState;
+          });
         }
       }
     };
@@ -805,6 +833,64 @@ export const useToolExecution = ({
     );
   }, [messagesRef?.current, clickedActions, availableToolResultsBuffer]);
 
+  /**
+   * Proceed with a dangerous command — gửi lại message runCommand với flag bypass.
+   * Promise resolver vẫn còn trong pendingToolResolvers nên kết quả sẽ được nhận bình thường.
+   */
+  const proceedDangerousCommand = useCallback(
+    (actionId: string) => {
+      const entry = dangerousCommands[actionId];
+      if (!entry) return;
+
+      // Xóa khỏi state để UI hết hiển thị cảnh báo
+      setDangerousCommands((prev) => {
+        const next = { ...prev };
+        delete next[actionId];
+        return next;
+      });
+
+      // Gửi lại lệnh với _bypassDangerCheck=true
+      extensionService.postMessage({
+        command: "runCommand",
+        commandText: entry.commandText,
+        folderPath: entry.folderPath,
+        actionId: actionId,
+        _bypassDangerCheck: true,
+      });
+    },
+    [dangerousCommands],
+  );
+
+  /**
+   * Cancel a dangerous command — resolve promise với thông báo rejected.
+   */
+  const cancelDangerousCommand = useCallback(
+    (actionId: string) => {
+      const entry = dangerousCommands[actionId];
+      if (!entry) return;
+
+      // Xóa khỏi state
+      setDangerousCommands((prev) => {
+        const next = { ...prev };
+        delete next[actionId];
+        return next;
+      });
+
+      // Resolve pending promise với error message
+      if (pendingToolResolvers.current.has(actionId)) {
+        const resolver = pendingToolResolvers.current.get(actionId)!;
+        const resultMsg = `Output: [run_command for '${entry.commandText}'] Error - Command cancelled by user (dangerous command detected: ${entry.reason})\n\`\`\`\n\n\`\`\``;
+        resolver(resultMsg);
+        pendingToolResolvers.current.delete(actionId);
+        commandStartTimes.current.delete(actionId);
+      }
+
+      // Đánh dấu rejected trên UI
+      window.postMessage({ command: "markActionRejected", actionId }, "*");
+    },
+    [dangerousCommands],
+  );
+
   return {
     executionState,
     toolOutputs,
@@ -816,5 +902,8 @@ export const useToolExecution = ({
     singleLineReviewActions,
     confirmSingleLineAction,
     rejectSingleLineAction,
+    dangerousCommands,
+    proceedDangerousCommand,
+    cancelDangerousCommand,
   };
 };

@@ -82,6 +82,18 @@ interface AIMessageBoxProps {
   canRegenerate?: boolean;
   /** View-only mode — ẩn revert icon trong ResponseMetadataBar */
   isViewOnly?: boolean;
+  /** Dangerous command warnings keyed by actionId */
+  dangerousCommands?: Record<
+    string,
+    {
+      actionId: string;
+      commandText: string;
+      folderPath?: string;
+      reason: string;
+    }
+  >;
+  onProceedDangerousCommand?: (actionId: string) => void;
+  onCancelDangerousCommand?: (actionId: string) => void;
 }
 
 const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
@@ -119,6 +131,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   onRevertConversation,
   canRegenerate = true,
   isViewOnly = false,
+  dangerousCommands,
+  onProceedDangerousCommand,
+  onCancelDangerousCommand,
 }) => {
   // Track render count for this specific message
   const renderCountRef = React.useRef(0);
@@ -423,7 +438,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                       ? () => onRetryRequest(message.id)
                       : undefined
                   }
-                  onRevertConversation={isViewOnly ? undefined : onRevertConversation}
+                  onRevertConversation={
+                    isViewOnly ? undefined : onRevertConversation
+                  }
                   isStreaming={isGenerating}
                   conversationId={conversationId}
                   canRegenerate={canRegenerate}
@@ -483,6 +500,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               firstUnclickedActionIndex={firstUnclickedActionIndex}
               isAntiInjectionProvider={!!message.antiSystemPromptInjection}
               isViewOnly={isViewOnly}
+              dangerousCommands={dangerousCommands}
+              onProceedDangerousCommand={onProceedDangerousCommand}
+              onCancelDangerousCommand={onCancelDangerousCommand}
             />
           );
 
@@ -577,8 +597,13 @@ const AIMessageBox = React.memo(
     const sameToolOutputs = prevProps.toolOutputs === nextProps.toolOutputs;
     const sameTerminalStatus =
       prevProps.terminalStatus === nextProps.terminalStatus;
-    const sameCanRegenerate = prevProps.canRegenerate === nextProps.canRegenerate;
+    const sameCanRegenerate =
+      prevProps.canRegenerate === nextProps.canRegenerate;
     const sameIsViewOnly = prevProps.isViewOnly === nextProps.isViewOnly;
+
+    // Check if dangerousCommands changed (reference equality is sufficient since it's a new object on update)
+    const sameDangerousCommands =
+      prevProps.dangerousCommands === nextProps.dangerousCommands;
 
     const shouldSkipRender =
       sameContent &&
@@ -591,7 +616,8 @@ const AIMessageBox = React.memo(
       sameToolOutputs &&
       sameTerminalStatus &&
       sameCanRegenerate &&
-      sameIsViewOnly;
+      sameIsViewOnly &&
+      sameDangerousCommands;
 
     const checkDuration = performance.now() - startTime;
 

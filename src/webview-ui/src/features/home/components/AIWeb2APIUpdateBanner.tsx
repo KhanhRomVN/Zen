@@ -1,6 +1,6 @@
 /**
  * ------------------------------------------------------------------
- * UpdateBanner
+ * AIWeb2APIUpdateBanner
  * ------------------------------------------------------------------
  * Banner hiển thị thông báo cần cập nhật AIWeb2API khi version đang
  * chạy cũ hơn latest release trên GitHub.
@@ -8,7 +8,8 @@
  * nhận có bản mới hơn.
  *
  * Style: dùng cùng hệ thống với InstallationBanner (CSS-in-JS via
- * <style>), màu vàng/warning thay cho đỏ/error.
+ * <style>), màu vàng/warning thay cho đỏ/error. CSS được export
+ * (updateBannerStyles) để ZenUpdateBanner dùng lại.
  * ------------------------------------------------------------------
  */
 
@@ -17,15 +18,15 @@ import React from "react";
 import { UpdateInfo } from "@/context/BackendConnectionContext";
 
 // ─── Types ──────────────────────────────────────────────────────────────
-interface UpdateBannerProps {
+interface AIWeb2APIUpdateBannerProps {
   updateInfo: UpdateInfo | null;
 }
 
 // ─── Styles (CSS-in-JS via <style>) ─────────────────────────────────────
-const styles = `
+export const updateBannerStyles = `
   .zen-update-banner {
     position: relative;
-    width: 100%; max-width: 480px;
+    width: 100%;
     display: flex; gap: 14px; align-items: center;
     padding: 16px;
     border-radius: 12px;
@@ -146,14 +147,16 @@ const styles = `
 `;
 
 // ─── Component ──────────────────────────────────────────────────────────
-const UpdateBanner: React.FC<UpdateBannerProps> = ({ updateInfo }) => {
+const AIWeb2APIUpdateBanner: React.FC<AIWeb2APIUpdateBannerProps> = ({
+  updateInfo,
+}) => {
   if (!updateInfo) return null;
 
   const { currentVersion, latestVersion } = updateInfo;
 
   return (
     <>
-      <style>{styles}</style>
+      <style>{updateBannerStyles}</style>
       <div className="zen-update-banner" role="alert" aria-live="polite">
         <div className="zen-update-icon" aria-hidden="true">
           {/* Arrow-up-circle icon */}
@@ -195,4 +198,4 @@ const UpdateBanner: React.FC<UpdateBannerProps> = ({ updateInfo }) => {
   );
 };
 
-export default UpdateBanner;
+export default AIWeb2APIUpdateBanner;

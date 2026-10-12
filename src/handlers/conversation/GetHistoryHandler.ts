@@ -78,6 +78,26 @@ export class GetHistoryHandler {
         };
       };
 
+      // Helper: lấy last user message làm title khi title đã lưu rỗng hoặc là fallback "New Conversation"
+      const extractLastUserTitle = (messages: any[]): string => {
+        const userMessages = messages.filter(
+          (m: any) => m.role === "user" && !m.uiHidden && !m.isCancelled,
+        );
+        const lastUserMsg =
+          [...userMessages]
+            .reverse()
+            .find((m: any) => m.content?.includes?.("<user-message>")) ||
+          userMessages[userMessages.length - 1];
+        let rawTitle =
+          typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
+        const titleMatch =
+          rawTitle.match(
+            /## User Message\n<user-message>\n([\s\S]*?)\n<\/user-message>/,
+          ) || rawTitle.match(/## User Message\n```\n([\s\S]*?)\n```/);
+        if (titleMatch) rawTitle = titleMatch[1];
+        return rawTitle.replace(/\n/g, " ").trim().substring(0, 100);
+      };
+
       for (const entry of entries) {
         // Cấu trúc mới: sub-folder {conversationId}/{conversationId}.json
         if (entry.isDirectory()) {
@@ -94,8 +114,14 @@ export class GetHistoryHandler {
             if (!Array.isArray(data) && data.metadata) {
               if (!loggedFirst) loggedFirst = true;
               const modelInfo = extractModelInfo(data.messages || []);
+              const savedTitle = data.metadata.title;
+              const title =
+                !savedTitle || savedTitle === "New Conversation"
+                  ? extractLastUserTitle(data.messages || []) || savedTitle
+                  : savedTitle;
               history.push({
                 ...data.metadata,
+                title,
                 id: conversationId,
                 messageCount: data.messages?.length || 0,
                 providerId: modelInfo.providerId,
