@@ -901,6 +901,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
           width: "100%",
           maxWidth: "1200px",
           margin: "0 auto",
+          padding: "0 12px",
           boxSizing: "border-box",
         }}
       >

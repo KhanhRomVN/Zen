@@ -238,7 +238,7 @@ export class DiagnosticsService {
         const matchedUri = e.uris.find((u) => u.fsPath === uri.fsPath);
         if (matchedUri) {
           eventCount++;
-                    
+
           if (!hasReceivedEvent) {
             hasReceivedEvent = true;
             clearTimeout(fallbackHandle);
@@ -283,7 +283,7 @@ export class DiagnosticsService {
     if (!FeatureSettingsService.getInstance().diagnosticEnabled) {
       return {
         diagnostics: [],
-        skippedReason: "Diagnostics đã bị tắt trong Settings.",
+        skippedReason: "",
       };
     }
 
@@ -330,7 +330,13 @@ export class DiagnosticsService {
       // Fallback 2: Retry 1 lần duy nhất (LSP có thể cần thêm thời gian)
       if (retryCount === 0) {
         await new Promise((r) => setTimeout(r, 2000)); // Đợi thêm 2s
-        return this.getDiagnostics(uri, pathValue, maxTimeoutMs, 1, forceWaitForNewDiagnostics);
+        return this.getDiagnostics(
+          uri,
+          pathValue,
+          maxTimeoutMs,
+          1,
+          forceWaitForNewDiagnostics,
+        );
       }
 
       // Fallback 3: Không lấy được sau retry → báo AI cần check thủ công

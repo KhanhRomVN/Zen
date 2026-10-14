@@ -567,7 +567,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
 
       <div
         className="chat-footer-inner"
-        style={{ width: "100%", maxWidth: 900, margin: "0 auto" }}
+        style={{ width: "100%", maxWidth: 900, margin: "0 auto", padding: "0 12px", boxSizing: "border-box" }}
       >
         <FilesPreviews
           uploadedFiles={uploadedFiles}
