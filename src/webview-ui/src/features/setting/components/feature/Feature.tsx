@@ -297,8 +297,6 @@ const FeatureSettings: React.FC = () => {
     setShowMetadataBar,
     memoryEnabled,
     setMemoryEnabled,
-    requestCooldownEnabled,
-    setRequestCooldownEnabled,
   } = useSettings();
 
   return (
@@ -378,12 +376,7 @@ const FeatureSettings: React.FC = () => {
           checked={showMetadataBar}
           onChange={setShowMetadataBar}
         />
-        <ToggleRow
-          title="Request Cooldown"
-          description="Wait a short delay after receiving a response before allowing the next request. Helps avoid rate-limiting from providers that flag rapid consecutive messages."
-          checked={requestCooldownEnabled}
-          onChange={setRequestCooldownEnabled}
-        />
+
       </GroupSection>
 
       {/* Memory */}

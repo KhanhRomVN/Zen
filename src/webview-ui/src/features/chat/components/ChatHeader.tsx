@@ -2,15 +2,27 @@
  * ------------------------------------------------------------------
  * ChatHeader
  * ------------------------------------------------------------------
- * Row 1: conversation_title  [Search] [3-dot vert]
- * Row 2: favicon · provider/model · email  [StatsBadge▸tooltip]
+ * Thanh tiêu đề của giao diện chat, hiển thị thông tin cuộc hội thoại hiện tại
+ * bao gồm tiêu đề, model đang sử dụng, tài khoản và thống kê token/request.
+ * Cung cấp menu hành động (copy, export, delete) và tìm kiếm trong chat.
+ *
+ * Main features:
+ * - Hiển thị tiêu đề cuộc trò chuyện (từ metadata hoặc trích xuất từ message đầu tiên)
+ * - Hiển thị favicon, tên provider/model và email tài khoản
+ * - Badge thống kê tokens/requests với tooltip chi tiết khi hover
+ * - Menu 3 chấm cho các hành động: Copy Markdown/JSON, Export, Delete
+ * - Nút tìm kiếm nhanh trong nội dung chat
  * ------------------------------------------------------------------
  */
 
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ─
 import React from "react";
+
+// ── Hooks ─
 import { useAccountStats } from "../../../hooks/useAccountStats";
 
-// ─── Props ───────────────────────────────────────────────────────────────
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface ChatHeaderProps {
   displayedModel: any;
   currentAccount: any;
@@ -39,13 +51,7 @@ interface ChatHeaderProps {
   onExportAsJson?: () => void;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────
-const fmt = (num: number) => {
-  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
-  if (num >= 1_000) return (num / 1_000).toFixed(1) + "K";
-  return num.toString();
-};
-
+// ─── Constants & Helpers ────────────────────────────────────────────────
 const PROMPT_LENGTH_COLOR: Record<string, string> = {
   none: "#64748b",
   short: "#14b8a6",
@@ -57,6 +63,12 @@ const PROMPT_LENGTH_LABEL: Record<string, string> = {
   short: "Short",
   medium: "Medium",
   long: "Long",
+};
+
+const fmt = (num: number) => {
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
+  if (num >= 1_000) return (num / 1_000).toFixed(1) + "K";
+  return num.toString();
 };
 
 const parseUserContent = (content: string): string => {
@@ -142,7 +154,8 @@ const getFaviconUrl = (providerId: string, fallback?: string): string => {
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
 };
 
-// ─── Square icon button (Search / 3-dot) ─────────────────────────────────
+// ─── Sub-components ─────────────────────────────────────────────────────
+// ── Square Icon Button ──
 const SqButton: React.FC<{
   title: string;
   active?: boolean;
@@ -182,7 +195,7 @@ const SqButton: React.FC<{
   );
 };
 
-// ─── 3-dot menu ───────────────────────────────────────────────────────────
+// ── Conversation Menu (3-dot) ──
 interface ConversationMenuProps {
   onCopyAsMarkdown?: () => void;
   onCopyAsJson?: () => void;
@@ -433,7 +446,7 @@ const ConversationMenu: React.FC<ConversationMenuProps> = ({
 
 
 
-// ─── Progress circle for usage% ─────────────────────────────────────────
+// ── Usage Circle ──
 const UsageCircle: React.FC<{ pct: number; color: string }> = ({
   pct,
   color,
@@ -467,7 +480,7 @@ const UsageCircle: React.FC<{ pct: number; color: string }> = ({
   );
 };
 
-// ─── Stats badge + custom tooltip ────────────────────────────────────────
+// ── Stats Badge ──
 interface StatsBadgeProps {
   chatTokens?: number;
   chatRequests?: number;
@@ -684,7 +697,7 @@ const StatsBadge: React.FC<StatsBadgeProps> = ({
   );
 };
 
-// ─── Tooltip row helper ───────────────────────────────────────────────────
+// ── Tooltip Row Helper ──
 const TooltipRow: React.FC<{
   icon: string;
   label: string;
@@ -827,7 +840,7 @@ const TooltipRow: React.FC<{
   );
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────
+// ─── Component ─────────────────────────────────────────────────────────
 const ChatHeader: React.FC<ChatHeaderProps> = ({
   displayedModel,
   currentAccount,
@@ -850,6 +863,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   onExportAsJson,
   messages,
 }) => {
+  // ── Hooks ──
   useAccountStats({
     accountId: currentAccount?.id,
     onStats: (freshAccount) => {
@@ -857,6 +871,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     },
   });
 
+  // ── Derived ──
   const providerId = displayedModel?.providerId || "";
   const faviconUrl = getFaviconUrl(providerId, displayedModel?.favicon);
 
@@ -885,6 +900,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   const displayTitle = derivedTitle;
 
+  // ── Render ─
   return (
     <div
       style={{

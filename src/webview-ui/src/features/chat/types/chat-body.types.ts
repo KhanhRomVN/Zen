@@ -1,11 +1,30 @@
+/**
+ * ------------------------------------------------------------------
+ * Chat Body Types
+ * ------------------------------------------------------------------
+ * Định nghĩa các kiểu dữ liệu (interfaces) được sử dụng bởi thành phần
+ * ChatBody và các sub-component liên quan. Bao gồm props chính của
+ * container chat và các trạng thái mở rộng cho luồng tool execution.
+ *
+ * Main types:
+ * - ChatBodyProps          : Props cơ bản cho component ChatBody
+ * - ExtendedChatBodyProps  : Props mở rộng bao gồm trạng thái terminal, search, git...
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ──────────────────────────────────────────────────────────
+// ── React ─
 import React from "react";
-import { Message } from "../../types/message";
+
+// ── Types & Constants ──
+import { Message } from "./message";
 import {
   EXECUTION_STATUS,
   TOOL_ACTION_TYPES,
   TERMINAL_STATUS,
-} from "../../constants/constants";
+} from "../constants/constants";
 
+// ─── Interfaces ────────────────────────────────────────────────────────
 export interface ChatBodyProps {
   messages: Message[];
   isProcessing: boolean;

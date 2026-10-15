@@ -1,4 +1,24 @@
+/**
+ * ------------------------------------------------------------------
+ * MessageBox
+ * ------------------------------------------------------------------
+ * Thành phần trung tâm hiển thị một tin nhắn trong cuộc trò chuyện.
+ * Phân nhánh render sang `UserMessageBox` hoặc `AIMessageBox` tùy thuộc vào role.
+ * Được bao bọc bởi Error Boundary để ngăn chặn crash toàn cục khi có lỗi render.
+ * Sử dụng React.memo với logic so sánh custom để tối ưu hiệu suất trong lúc streaming.
+ *
+ * Main features:
+ * - Routing giữa User và AI message boxes
+ * - Error Boundary xử lý lỗi render cục bộ
+ * - Performance optimization via selective prop comparison during streaming
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ───────────────────────────────────────────────────────────
+// ── React ──
 import React from "react";
+
+// ── Types & Constants ──
 import { Message } from "../../types/message";
 import {
   EXECUTION_STATUS,
@@ -6,13 +26,12 @@ import {
   TERMINAL_STATUS,
 } from "../../constants/constants";
 import { ParsedResponse } from "../../services/ResponseParser";
+
+// ── Components ──
 import UserMessageBox from "./UserMessageBox";
 import AIMessageBox from "./AIMessageBox";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MessageBox Props Interface
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── Interfaces ─────────────────────────────────────────────────────────
 export interface MessageBoxProps {
   message: Message;
   parsedContent: ParsedResponse;
@@ -97,10 +116,7 @@ export interface MessageBoxProps {
   onCancelDangerousCommand?: (actionId: string) => void;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Error Boundary for Message Rendering
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── Error Boundary ────────────────────────────────────────────────────
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
@@ -234,10 +250,7 @@ class MessageBoxErrorBoundary extends React.Component<
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MessageBox Component
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── Component ──────────────────────────────────────────────────────────
 const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
   const { message, onRevertConversation, onRegenerateRequest } = props;
 

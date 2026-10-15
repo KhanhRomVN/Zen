@@ -1,8 +1,25 @@
+/**
+ * ------------------------------------------------------------------
+ * ChatFooter
+ * ------------------------------------------------------------------
+ * Thành phần chân trang của giao diện chat, chịu trách nhiệm hiển thị
+ * ô nhập tin nhắn (MessageInput) và danh sách file đính kèm (FilesPreviews).
+ *
+ * Main features:
+ * - Hiển thị input area và preview files
+ * - Truyền props xuống MessageInput và quản lý trạng thái UI cục bộ
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React from "react";
+
+// ── Components ──
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
-import { FileMutationTool } from "@/features/chat/constants/constants";
 
+// ─── Interfaces ────────────────────────────────────────────────────────
 interface ChatFooterProps {
   message: string;
   setMessage: React.Dispatch<React.SetStateAction<string>>;
@@ -79,14 +96,9 @@ interface ChatFooterProps {
   /** Tool format cho conversation này */
   conversationToolFormat?: "xml" | "json";
   onConversationToolFormatToggle?: () => void;
-  /** Timestamp (ms) lúc nhận xong response cuối — dùng để tính cooldown timer */
-  lastResponseEndTime?: number | null;
-  /** Thời gian cooldown (ms) lấy từ provider config. 0 = không dùng */
-  requestCooldownMs?: number;
-  /** Mốc bắt đầu chờ cooldown trước request tool-result (ms). null = không chờ. Chỉ dùng cho viền progress. */
-  cooldownWaitStartTime?: number | null;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 const ChatFooter: React.FC<ChatFooterProps> = ({
   message,
   setMessage,
@@ -142,14 +154,12 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   isViewOnly = false,
   conversationToolFormat,
   onConversationToolFormatToggle,
-  lastResponseEndTime,
-  requestCooldownMs = 0,
-  cooldownWaitStartTime,
 }) => {
+  // ── Refs ──
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
 
-  // Calculate response range - count all assistant responses in the conversation
+  // ── Derived ─
   const responseRange = React.useMemo(() => {
     // Count all assistant responses
     const assistantResponses = messages.filter((m) => m.role === "assistant");
@@ -160,7 +170,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
     return { start: 1, end: totalResponses };
   }, [messages]);
 
-  // Calculate response ranges per manual user message
   const responseRanges = React.useMemo(() => {
     const ranges: Array<{
       start: number;
@@ -395,7 +404,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
     return reversedRanges;
   }, [messages]);
 
-  // Calculate file changes from conversation messages
   const { conversationFileStats, fileChangesMap } = React.useMemo(() => {
     const fileChanges = new Map<
       string,
@@ -532,7 +540,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
     };
   }, [messages, loadedConversationFileStats]);
 
-  // Prepare data for review drawer
   const fileChangesList = React.useMemo(() => {
     return Array.from(fileChangesMap.entries()).map(
       ([path, stats]: [string, { additions: number; deletions: number }]) => ({
@@ -543,6 +550,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
     );
   }, [fileChangesMap]);
 
+  // ── Render ──
   return (
     <div
       id="chat-footer-container"
@@ -573,7 +581,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
 
       <div
         className="chat-footer-inner"
-        style={{ width: "100%", maxWidth: 900, margin: "0 auto", padding: "0 12px", boxSizing: "border-box" }}
+        style={{
+          width: "100%",
+          maxWidth: 900,
+          margin: "0 auto",
+          padding: "0 12px",
+          boxSizing: "border-box",
+        }}
       >
         <FilesPreviews
           uploadedFiles={uploadedFiles}
@@ -634,21 +648,10 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
             onGitPullRequest={onGitPullRequest}
             isGitLoading={gitLoading}
             isGitStatusVisible={isGitStatusVisible}
-            gitStatus={{
-              items: Array.from(
-                { length: conversationFileStats.totalFiles },
-                (_, i) => ({
-                  path: `file-${i}`,
-                  additions: 0,
-                  deletions: 0,
-                }),
-              ),
-            }}
+            gitStatus={gitStatus || undefined}
             conversationFileStats={loadedConversationFileStats ?? undefined}
             onOpenGitStatus={onOpenGitStatus}
             onReviewClick={() => {}}
-            responseRange={responseRange}
-            responseRanges={responseRanges}
             onRevertConversation={onRevertConversation}
             onModelSwitch={onModelSwitch}
             autoScrollPaused={autoScrollPaused}
@@ -659,9 +662,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
             onRemoveAttachedItem={removeAttachedItem}
             conversationToolFormat={conversationToolFormat}
             onConversationToolFormatToggle={onConversationToolFormatToggle}
-            lastResponseEndTime={lastResponseEndTime}
-            requestCooldownMs={requestCooldownMs}
-            cooldownWaitStartTime={cooldownWaitStartTime}
           />
         </div>
       </div>

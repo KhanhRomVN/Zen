@@ -122,49 +122,6 @@ const useToggleState = (key: string, defaultValue: boolean = false) => {
   return [state, toggle, setState] as const;
 };
 
-/**
- * Hook tính thời gian còn lại (ms) cho cooldown request.
- * Trả về `remaining` (ms) > 0 khi đang trong giai đoạn cooldown, 0 khi đã hết.
- * Cập nhật mỗi 100ms để UI đếm ngược mượt.
- */
-const useCooldownTimer = (
-  lastResponseEndTime: number | null | undefined,
-  cooldownMs: number,
-): number => {
-  const [remaining, setRemaining] = React.useState(0);
-
-  React.useEffect(() => {
-    if (!lastResponseEndTime || cooldownMs <= 0) {
-      setRemaining(0);
-      return;
-    }
-
-    let rafId: number;
-
-    const tick = () => {
-      const elapsed = Date.now() - lastResponseEndTime;
-      const left = Math.max(0, cooldownMs - elapsed);
-
-      // Chỉ update state nếu giá trị thay đổi đáng kể hoặc về 0 để tránh re-render vô ích
-      setRemaining((prev) => {
-        if (prev === left) return prev;
-        return left;
-      });
-
-      if (left > 0) {
-        rafId = requestAnimationFrame(tick);
-      }
-    };
-
-    // Bắt đầu loop ngay lập tức
-    tick();
-
-    return () => cancelAnimationFrame(rafId);
-  }, [lastResponseEndTime, cooldownMs]);
-
-  return remaining;
-};
-
 const useModelCapabilities = (
   currentModel: any,
   currentModelConfig: any,
@@ -799,9 +756,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     onConversationUseSkillToggle,
     onConversationMemoryToggle,
     onConversationToolFormatToggle,
-    lastResponseEndTime,
-    cooldownWaitStartTime,
-    requestCooldownMs = 0,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
     const renderCountRef = React.useRef(0);
@@ -981,25 +935,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
     useTextareaAutoResize(textareaRef, message);
 
-    // ─── Cooldown timer ──────────────────────────────────────────────
-    // Đếm ngược từ lúc nhận xong response đến khi hết cooldown.
-    // Đọc setting từ SettingsContext để biết người dùng có bật không.
-    const { requestCooldownEnabled } = useSettings();
-    const effectiveCooldownMs =
-      requestCooldownEnabled && requestCooldownMs > 0 ? requestCooldownMs : 0;
-    const cooldownRemaining = useCooldownTimer(
-      lastResponseEndTime,
-      effectiveCooldownMs,
-    );
-    // isCoolingDown = true khi đang trong giai đoạn chờ
-    const isCoolingDown = cooldownRemaining > 0;
-    const waitCooldownRemaining = useCooldownTimer(
-      cooldownWaitStartTime,
-      effectiveCooldownMs,
-    );
-    const isWaitingCooldown =
-      cooldownWaitStartTime != null && waitCooldownRemaining > 0;
-
     const displayModel = React.useMemo(() => {
       return currentModel || null;
     }, [currentModel]);
@@ -1075,9 +1010,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       if (isTimeBlocked && timeBlockLabel) {
         return `DeepSeek is blocked during ${timeBlockLabel.all}`;
       }
-      if (isCoolingDown) {
-        return `Please wait ${(cooldownRemaining / 1000).toFixed(1)}s before sending next message...`;
-      }
       if (!currentModel) {
         return "Select a model to start";
       }
@@ -1095,8 +1027,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       isViewOnlyProvider,
       isTimeBlocked,
       timeBlockLabel,
-      isCoolingDown,
-      cooldownRemaining,
       currentModel,
       currentAccount,
       supportsUpload,
@@ -1454,53 +1384,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               transition: "border 0.3s ease",
             }}
           >
-            {/* Border Depletion Progress — conic-gradient driven by cooldown timer */}
-            {(isWaitingCooldown ||
-              (isCoolingDown && !isStreaming && !isProcessing)) &&
-              !isViewOnly &&
-              isConnected &&
-              !isTimeBlocked &&
-              !isTokenLimitExceeded &&
-              (() => {
-                // remainingRatio: 1 at start → 0 when finished
-                const remainingRatio =
-                  effectiveCooldownMs > 0
-                    ? Math.max(
-                        0,
-                        Math.min(
-                          1,
-                          (isWaitingCooldown
-                            ? waitCooldownRemaining
-                            : cooldownRemaining) / effectiveCooldownMs,
-                        ),
-                      )
-                    : 0;
-                // Angle of the visible arc (clockwise from top-left)
-                const deg = remainingRatio * 360;
-                // Muted primary color (~50% opacity)
-                const borderColor =
-                  "color-mix(in srgb, var(--vscode-textLink-foreground, #007acc) 50%, transparent)";
-
-                return (
-                  <div
-                    aria-hidden="true"
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      borderRadius: "var(--border-radius)",
-                      padding: "1px",
-                      // Arc drawn clockwise starting from top-left (-90deg origin in conic space)
-                      background: `conic-gradient(from -90deg at 50% 50%, ${borderColor} 0deg, ${borderColor} ${deg}deg, transparent ${deg}deg, transparent 360deg)`,
-                      WebkitMask:
-                        "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-                      WebkitMaskComposite: "xor",
-                      maskComposite: "exclude",
-                      pointerEvents: "none",
-                      zIndex: 5,
-                    }}
-                  />
-                );
-              })()}
             {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
             {!isConversationStarted && (
               <div
@@ -1770,6 +1653,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 isLoadingProviders={isLoadingProviders}
                 apiUrl={apiUrl}
                 onRefresh={refreshProviders}
+                currentEffort={effortInfo?.effort}
                 onSelect={(selected) => {
                   const prov = providers.find(
                     (p: any) => p.provider_id === selected.providerId,
@@ -2102,15 +1986,13 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    // Only send if not history mode, connected, not loading, not processing, not exceeded token limit, not time-blocked, not cooling down
                     if (
                       !isHistoryMode &&
                       isConnected &&
                       !isLoadingCache &&
                       !isProcessing &&
                       !isTokenLimitExceeded &&
-                      !isTimeBlocked &&
-                      !isCoolingDown
+                      !isTimeBlocked
                     ) {
                       onSendMessage();
                     }
@@ -2540,12 +2422,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         return;
                       }
 
-                      if (
-                        isTokenLimitExceeded ||
-                        isTimeBlocked ||
-                        isCoolingDown
-                      ) {
-                        // Don't send when limit exceeded, time-blocked, or cooling down
+                      if (isTokenLimitExceeded || isTimeBlocked) {
+                        // Don't send when limit exceeded or time-blocked
                         return;
                       }
 
@@ -2690,13 +2568,6 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
   const toolFormatSame =
     prevProps.conversationToolFormat === nextProps.conversationToolFormat;
 
-  const lastResponseEndTimeSame =
-    prevProps.lastResponseEndTime === nextProps.lastResponseEndTime;
-  const requestCooldownMsSame =
-    prevProps.requestCooldownMs === nextProps.requestCooldownMs;
-  const cooldownWaitStartTimeSame =
-    prevProps.cooldownWaitStartTime === nextProps.cooldownWaitStartTime;
-
   // Only re-render if critical props changed
   const shouldSkip =
     messageSame &&
@@ -2711,10 +2582,7 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     diagnosticSame &&
     useSkillSame &&
     memorySame &&
-    toolFormatSame &&
-    lastResponseEndTimeSame &&
-    cooldownWaitStartTimeSame &&
-    requestCooldownMsSame;
+    toolFormatSame;
 
   return shouldSkip;
 });

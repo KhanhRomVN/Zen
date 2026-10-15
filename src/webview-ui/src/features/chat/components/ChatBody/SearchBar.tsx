@@ -1,5 +1,24 @@
+/**
+ * ------------------------------------------------------------------
+ * SearchBar
+ * ------------------------------------------------------------------
+ * Thanh công cụ tìm kiếm nổi (floating toolbar) cho phép người dùng
+ * tìm kiếm văn bản trong nội dung chat. Hỗ trợ các chế độ nâng cao
+ * như phân biệt hoa/thường, khớp nguyên từ và biểu thức chính quy (regex).
+ *
+ * Main features:
+ * - Highlight kết quả tìm kiếm trực tiếp trên DOM bằng <mark> tags
+ * - Điều hướng giữa các kết quả (Previous/Next) với scroll tự động
+ * - Toggle các flag tìm kiếm: Match Case, Whole Word, Regex
+ * - Hiển thị số lượng kết quả và vị trí hiện tại
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ─
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
+// ─── Interfaces & Types ─────────────────────────────────────────────────
 export interface SearchBarProps {
   searchQuery: string;
   onSearchQueryChange?: (q: string) => void;
@@ -9,13 +28,17 @@ export interface SearchBarProps {
 
 type SearchFlag = "matchCase" | "wholeWord" | "regex";
 
+// ─── Component ──────────────────────────────────────────────────────────
 const SearchBar: React.FC<SearchBarProps> = ({
   searchQuery: initialQuery,
   onSearchQueryChange,
   onCloseSearch,
   bodyRef,
 }) => {
+  // ── Refs ──
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── State ──
   const [localQuery, setLocalQuery] = useState(initialQuery || "");
   const [flags, setFlags] = useState<Set<SearchFlag>>(
     new Set<SearchFlag>(["regex"]),
@@ -23,10 +46,12 @@ const SearchBar: React.FC<SearchBarProps> = ({
   const [matchCount, setMatchCount] = useState(0);
   const [currentIdx, setCurrentIdx] = useState(0);
 
+  // ── Effects ──
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
+  // ── Handlers ──
   const handleQueryChange = (q: string) => {
     setLocalQuery(q);
     onSearchQueryChange?.(q);
@@ -59,6 +84,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
     [flags],
   );
 
+  // ── Effects (DOM Manipulation for Highlighting) ──
   useEffect(() => {
     const root = bodyRef.current;
     if (!root) return;

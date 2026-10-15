@@ -2,23 +2,31 @@
  * ------------------------------------------------------------------
  * RevertConfirmDrawer
  * ------------------------------------------------------------------
- * Bottom-sheet drawer xác nhận revert conversation về điểm này.
- * UI dựa theo mockup: impact bar, grouped files (restore/undo/remove),
- * collapsible groups, search.
+ * Bottom-sheet drawer xác nhận việc quay ngược (revert) cuộc trò chuyện
+ * về một thời điểm cụ thể. Hiển thị danh sách các file bị ảnh hưởng,
+ * phân loại thành nhóm Restore, Undo và Remove với thanh tổng quan tác động.
  *
- * Clicking a file row opens a preview in the editor:
- *   - restore  (delete_file)             → temp tab with restored content
- *   - remove   (create_file/write_to_file) → temp tab with current content
- *   - undo     (replace_in_file / …)     → diff view (after revert ↔ current)
+ * Main features:
+ * - Fetch danh sách file thay đổi từ backend khi mở drawer
+ * - Nhóm file theo loại hành động (restore/undo/remove) với màu sắc riêng
+ * - Tìm kiếm/lọc nhanh theo tên file
+ * - Xem trước nội dung file hoặc diff khi click vào dòng file
+ * - Animation slide-up và backdrop blur mượt mà
  * ------------------------------------------------------------------
  */
 
+// ─── Imports ───────────────────────────────────────────────────────────
+// ── React ──
 import React from "react";
 import { createPortal } from "react-dom";
+
+// ── UI ─
 import { RotateCcw, Loader2 } from "lucide-react";
+
+// ── Utils ──
 import { getFileIconPath } from "@/utils/fileIconMapper";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Interfaces & Types ─────────────────────────────────────────────────
 
 interface RevertFileEntry {
   filePath: string;
@@ -50,12 +58,12 @@ interface RevertConfirmDrawerProps {
   description?: string;
 }
 
-// ─── Group definitions ───────────────────────────────────────────────────────
-
+// ─── Constants ──────────────────────────────────────────────────────────
 const ACCENT_RESTORE = "#4FD1C0";
 const ACCENT_UNDO    = "#F0A857";
 const ACCENT_REMOVE  = "#F0687A";
 
+// ─── Data Definitions ───────────────────────────────────────────────────
 const GROUP_DEFS: GroupDef[] = [
   {
     key: "restore",
@@ -101,8 +109,8 @@ function classifyFile(entry: RevertFileEntry): GroupKey {
   return "undo"; // replace_in_file, rename_file, move_file, etc.
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
+// ─── Sub-components ─────────────────────────────────────────────────────────
+// ── Icons ──
 const ChevronIcon: React.FC<{ open: boolean }> = ({ open }) => (
   <svg
     width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -125,8 +133,7 @@ const XIcon = () => (
   </svg>
 );
 
-// ─── FileRow ─────────────────────────────────────────────────────────────────
-
+// ── File Row ──
 const FileRow: React.FC<{
   entry: RevertFileEntry;
   groupKey: GroupKey;
@@ -245,8 +252,7 @@ const FileRow: React.FC<{
   );
 };
 
-// ─── Group ───────────────────────────────────────────────────────────────────
-
+// ── File Group ──
 const FileGroup: React.FC<{
   def: GroupDef;
   files: RevertFileEntry[];
@@ -338,8 +344,7 @@ const FileGroup: React.FC<{
   );
 };
 
-// ─── Main Component ──────────────────────────────────────────────────────────
-
+// ─── Component ──────────────────────────────────────────────────────────────
 const RevertConfirmDrawer: React.FC<RevertConfirmDrawerProps> = ({
   isOpen,
   onClose,
@@ -347,11 +352,13 @@ const RevertConfirmDrawer: React.FC<RevertConfirmDrawerProps> = ({
   messageId,
   conversationId,
 }) => {
+  // ── State ──
   const [files, setFiles]     = React.useState<RevertFileEntry[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [query, setQuery]     = React.useState("");
   const [reverting, setReverting] = React.useState(false);
 
+  // ── Effects ──
   // Fetch file list when drawer opens
   React.useEffect(() => {
     if (!isOpen || !messageId) return;
@@ -430,7 +437,7 @@ const RevertConfirmDrawer: React.FC<RevertConfirmDrawerProps> = ({
           bottom: 0,
           left: 0,
           right: 0,
-          height: "70%",
+          height: "50%",
           backgroundColor: "var(--tertiary-bg, var(--vscode-editorWidget-background, #15171D))",
           borderTop: "1px solid var(--border-color, var(--vscode-widget-border))",
           borderTopLeftRadius: "0",

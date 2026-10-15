@@ -177,20 +177,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return pc?.blocked_time_ranges ?? null;
   }, [currentModel?.providerId, providers]);
 
-  // request_cooldown_ms từ provider config — thời gian chờ (ms) giữa các request.
-  // '0' hoặc không có = tắt. Giá trị có thể là string hoặc number từ backend.
-  const currentProviderCooldownMs = React.useMemo(() => {
-    const providerId = currentModel?.providerId;
-    if (!providerId) return 0;
-    const pc = providers.find(
-      (p: any) => p.provider_id?.toLowerCase() === providerId.toLowerCase(),
-    );
-    const raw = (pc as any)?.request_cooldown_ms;
-    if (raw === undefined || raw === null) return 0;
-    const n = Number(raw);
-    return isNaN(n) ? 0 : n;
-  }, [currentModel?.providerId, providers]);
-
   // anti_system_prompt_injection từ provider config — sync với claude.constant.ts qua API.
   // Khi true: dùng claude-system-prompt riêng, zip workspace, parse ClaudeContentProcessor.
   // Khi false (constant bị comment out): toàn bộ cơ chế đặc thù tắt theo.
@@ -203,12 +189,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return !!(pc as any)?.anti_system_prompt_injection;
   }, [currentModel?.providerId, providers]);
 
-  const {
-    commitMessageLanguage,
-    promptLengthMode,
-    systemPromptMode,
-    requestCooldownEnabled,
-  } = useSettings();
+  const { commitMessageLanguage, promptLengthMode, systemPromptMode } =
+    useSettings();
 
   // --- UI State Management ---
   const {
@@ -312,22 +294,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     toggleToolFormat: handleToolFormatToggle,
   } = useToolFormatSettings(currentModel?.providerId, currentModel?.id);
 
-  const [lastResponseEndTime, setLastResponseEndTime] = React.useState<
-    number | null
-  >(null);
-  const handleTurnComplete = React.useCallback(() => {
-    const ts = Date.now();
-    setLastResponseEndTime(ts);
-  }, [currentProviderCooldownMs]);
-
-  const [cooldownWaitStartTime, setCooldownWaitStartTime] = React.useState<
-    number | null
-  >(null);
-
-  // Reset lastResponseEndTime khi bắt đầu một conversation mới
-  React.useEffect(() => {
-    setLastResponseEndTime(null);
-  }, [currentChat?.sessionId]);
+  const handleTurnComplete = React.useCallback(() => {}, []);
   // ─────────────────────────────────────────────────────────────────────
 
   const {
@@ -391,8 +358,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setConversationTitle(title);
     },
     onTurnComplete: handleTurnComplete,
-    requestCooldownMs: requestCooldownEnabled ? currentProviderCooldownMs : 0,
-    onCooldownWait: setCooldownWaitStartTime,
   });
 
   // Track messages and streaming state - kept for potential future use, but removed heavy logging
@@ -1393,9 +1358,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isViewOnly={isViewOnly}
         conversationToolFormat={conversationToolFormat}
         onConversationToolFormatToggle={handleToolFormatToggle}
-        lastResponseEndTime={lastResponseEndTime}
-        cooldownWaitStartTime={cooldownWaitStartTime}
-        requestCooldownMs={currentProviderCooldownMs}
       />
     </div>
   );

@@ -656,20 +656,9 @@ export const useToolExecution = ({
                   );
 
                   if (result instanceof Promise) {
-                    result
-                      .then(() => {})
-                      .catch((err) => {
-                        console.error(
-                          `[DEBUG][Cooldown] sendMessage promise rejected`,
-                          err,
-                        );
-                      });
+                    result.catch(() => {});
                   }
                 } catch (err) {
-                  console.error(
-                    `[DEBUG][Cooldown] handleSendMessageRef.current threw synchronously`,
-                    err,
-                  );
                   throw err;
                 }
 

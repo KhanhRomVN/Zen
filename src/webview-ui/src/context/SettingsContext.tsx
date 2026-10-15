@@ -45,9 +45,7 @@ interface SettingsContextType {
   /** Bật/tắt tính năng Memory (đọc/ghi memory.md dự án) */
   memoryEnabled: boolean;
   setMemoryEnabled: (value: boolean) => void;
-  /** Bật/tắt cơ chế request cooldown (chờ N giây sau khi nhận response trước) */
-  requestCooldownEnabled: boolean;
-  setRequestCooldownEnabled: (value: boolean) => void;
+
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -153,8 +151,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [memoryEnabled, setMemoryEnabledState] = useState<boolean>(() =>
     loadBool("zen_memory_enabled", false),
   );
-  const [requestCooldownEnabled, setRequestCooldownEnabledState] =
-    useState<boolean>(() => loadBool("zen_request_cooldown_enabled", true));
+
 
   const [activeDatabaseManagerId, setActiveDatabaseManagerIdState] = useState<string | null>(
     () => {
@@ -351,10 +348,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     persistBool("zen_memory_enabled", value);
   };
 
-  const setRequestCooldownEnabled = (value: boolean) => {
-    setRequestCooldownEnabledState(value);
-    persistBool("zen_request_cooldown_enabled", value);
-  };
+
 
   const setActiveDatabaseManagerId = (id: string | null) => {
     const previousId = activeDatabaseManagerId;
@@ -415,8 +409,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setUseSkillEnabled,
         memoryEnabled,
         setMemoryEnabled,
-        requestCooldownEnabled,
-        setRequestCooldownEnabled,
       }}
     >
       {children}

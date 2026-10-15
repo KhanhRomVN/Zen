@@ -1,20 +1,50 @@
+/**
+ * ------------------------------------------------------------------
+ * UserMessageBox
+ * ------------------------------------------------------------------
+ * Component hiển thị tin nhắn của người dùng trong giao diện chat.
+ * Hỗ trợ chỉnh sửa trực tiếp (inline edit), sao chép nội dung,
+ * và yêu cầu quay ngược cuộc trò chuyện (revert) về thời điểm này.
+ * Tự động parse và hiển thị tóm tắt câu trả lời nếu có thẻ <question-answer>.
+ *
+ * Main features:
+ * - Hiển thị bubble tin nhắn với file đính kèm (nếu có)
+ * - Chế độ chỉnh sửa inline với auto-resize textarea
+ * - Nút Copy, Edit và Revert ở thanh công cụ dưới cùng
+ * - Tích hợp RevertConfirmDrawer để xác nhận thay đổi file trước khi revert
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ───────────────────────────────────────────────────────────
+// ── React ──
 import React from "react";
+
+// ── Components ──
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
-import { Message, QuestionAnswer } from "@/features/chat/types/message";
 import RevertConfirmDrawer from "./RevertConfirmDrawer";
 
+// ── Types ──
+import { Message, QuestionAnswer } from "@/features/chat/types/message";
+
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface UserMessageBoxProps {
   message: Message;
   conversationId?: string;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   onRegenerateRequest?: (messageId: string) => void;
-  onEditRequest?: (messageId: string, newContent: string, revert: boolean) => void;
+  onEditRequest?: (
+    messageId: string,
+    newContent: string,
+    revert: boolean,
+  ) => void;
   /** Whether the current provider supports regenerate/revert mechanism */
   canRegenerate?: boolean;
   /** Conversation is view-only — hide edit/revert actions */
   isViewOnly?: boolean;
 }
 
+// ─── Sub-components & Helpers ──────────────────────────────────────────────
+// ── Parser Helper ──
 /**
  * Parse <question-answer> tag from user message content
  * Returns: { answers: Record<string, string>, cleanedContent: string }
@@ -46,8 +76,7 @@ const parseQuestionAnswerFromContent = (
   return { answers, cleanedContent };
 };
 
-// ─── Icons ───────────────────────────────────────────────────────────────────
-
+// ── Icons ──
 const EditIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -113,8 +142,11 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
   const [isEditing, setIsEditing] = React.useState(false);
   const [editValue, setEditValue] = React.useState("");
   const [showRevertModal, setShowRevertModal] = React.useState(false);
-  const [pendingSendEdit, setPendingSendEdit] = React.useState<{ content: string } | null>(null);
-  const [showRevertModal_forEdit, setShowRevertModal_forEdit] = React.useState(false);
+  const [pendingSendEdit, setPendingSendEdit] = React.useState<{
+    content: string;
+  } | null>(null);
+  const [showRevertModal_forEdit, setShowRevertModal_forEdit] =
+    React.useState(false);
   // true khi đang query revert preview để hiện loading trên nút Send
   const [checkingRevert, setCheckingRevert] = React.useState(false);
   // true khi đang query revert preview cho revert icon
@@ -203,7 +235,10 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
 
     const handler = (event: MessageEvent) => {
       const data = event.data;
-      if (data?.command === "revertPreviewResult" && data?.messageId === message.id) {
+      if (
+        data?.command === "revertPreviewResult" &&
+        data?.messageId === message.id
+      ) {
         window.removeEventListener("message", handler);
         clearTimeout(timeoutId);
         setCheckingRevert(false);
@@ -226,7 +261,11 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
     };
 
     window.addEventListener("message", handler);
-    vscodeApi.postMessage({ command: "getRevertPreview", conversationId, messageId: message.id });
+    vscodeApi.postMessage({
+      command: "getRevertPreview",
+      conversationId,
+      messageId: message.id,
+    });
 
     // Timeout 3s: nếu không nhận được kết quả → fallback mở drawer
     const timeoutId = setTimeout(() => {
@@ -260,7 +299,10 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
 
     const handler = (event: MessageEvent) => {
       const data = event.data;
-      if (data?.command === "revertPreviewResult" && data?.messageId === message.id) {
+      if (
+        data?.command === "revertPreviewResult" &&
+        data?.messageId === message.id
+      ) {
         window.removeEventListener("message", handler);
         clearTimeout(timeoutId);
         setCheckingRevertIcon(false);
@@ -275,7 +317,11 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
     };
 
     window.addEventListener("message", handler);
-    vscodeApi.postMessage({ command: "getRevertPreview", conversationId, messageId: message.id });
+    vscodeApi.postMessage({
+      command: "getRevertPreview",
+      conversationId,
+      messageId: message.id,
+    });
 
     const timeoutId = setTimeout(() => {
       window.removeEventListener("message", handler);
@@ -343,7 +389,8 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
             gap: "var(--spacing-xs)",
             borderRadius: "var(--border-radius)",
             backgroundColor: "var(--input-bg)",
-            border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+            border:
+              "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
             padding: "var(--spacing-md)",
             marginLeft: "0px",
             position: "relative",
@@ -374,7 +421,9 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
               >
                 Question Answers
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "6px" }}
+              >
                 {Object.entries(questionAnswers).map(([qId, answer]) => {
                   const questionNumber = qId.replace("q", "");
                   return (
@@ -398,7 +447,8 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
                       <span
                         style={{
                           opacity: answer === "(no answer)" ? 0.5 : 1,
-                          fontStyle: answer === "(no answer)" ? "italic" : "normal",
+                          fontStyle:
+                            answer === "(no answer)" ? "italic" : "normal",
                         }}
                       >
                         {answer}
@@ -512,7 +562,8 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
                 borderRadius: "4px",
                 fontSize: "12px",
                 cursor: "pointer",
-                background: "color-mix(in srgb, var(--vscode-foreground) 8%, transparent)",
+                background:
+                  "color-mix(in srgb, var(--vscode-foreground) 8%, transparent)",
                 border: "none",
                 color: "var(--vscode-foreground)",
                 transition: "background 0.15s",
@@ -537,14 +588,19 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
                 padding: "4px 12px",
                 borderRadius: "4px",
                 fontSize: "12px",
-                cursor: editValue.trim() && !checkingRevert ? "pointer" : "not-allowed",
-                background: editValue.trim() && !checkingRevert
-                  ? "color-mix(in srgb, var(--vscode-button-background) 22%, transparent)"
-                  : "color-mix(in srgb, var(--vscode-button-background) 10%, transparent)",
+                cursor:
+                  editValue.trim() && !checkingRevert
+                    ? "pointer"
+                    : "not-allowed",
+                background:
+                  editValue.trim() && !checkingRevert
+                    ? "color-mix(in srgb, var(--vscode-button-background) 22%, transparent)"
+                    : "color-mix(in srgb, var(--vscode-button-background) 10%, transparent)",
                 border: "none",
-                color: editValue.trim() && !checkingRevert
-                  ? "var(--vscode-button-background)"
-                  : "color-mix(in srgb, var(--vscode-button-background) 40%, transparent)",
+                color:
+                  editValue.trim() && !checkingRevert
+                    ? "var(--vscode-button-background)"
+                    : "color-mix(in srgb, var(--vscode-button-background) 40%, transparent)",
                 fontWeight: 600,
                 opacity: editValue.trim() && !checkingRevert ? 1 : 0.6,
                 transition: "all 0.15s",
@@ -566,15 +622,22 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
               {checkingRevert ? (
                 <>
                   <svg
-                    width="11" height="11" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
                     style={{ animation: "umEditSpin 0.7s linear infinite" }}
                   >
                     <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                   </svg>
                   Checking…
                 </>
-              ) : "Send"}
+              ) : (
+                "Send"
+              )}
               <style>{`@keyframes umEditSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
             </button>
           </div>
@@ -621,27 +684,27 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
 
           {/* Edit (replaces regenerate) */}
           {canRegenerate && !isViewOnly && (
-          <button
-            onClick={handleOpenEdit}
-            title="Edit message"
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: "4px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--vscode-descriptionForeground)",
-              borderRadius: "4px",
-              opacity: 0.7,
-              transition: "opacity 0.2s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
-          >
-            <EditIcon />
-          </button>
+            <button
+              onClick={handleOpenEdit}
+              title="Edit message"
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: "4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--vscode-descriptionForeground)",
+                borderRadius: "4px",
+                opacity: 0.7,
+                transition: "opacity 0.2s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+            >
+              <EditIcon />
+            </button>
           )}
 
           {/* Revert conversation to this point */}
@@ -663,13 +726,22 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
                 opacity: checkingRevertIcon ? 0.4 : 0.7,
                 transition: "opacity 0.2s",
               }}
-              onMouseEnter={(e) => { if (!checkingRevertIcon) e.currentTarget.style.opacity = "1"; }}
-              onMouseLeave={(e) => { if (!checkingRevertIcon) e.currentTarget.style.opacity = "0.7"; }}
+              onMouseEnter={(e) => {
+                if (!checkingRevertIcon) e.currentTarget.style.opacity = "1";
+              }}
+              onMouseLeave={(e) => {
+                if (!checkingRevertIcon) e.currentTarget.style.opacity = "0.7";
+              }}
             >
               {checkingRevertIcon ? (
                 <svg
-                  width="14" height="14" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
                   style={{ animation: "umEditSpin 0.7s linear infinite" }}
                 >
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />

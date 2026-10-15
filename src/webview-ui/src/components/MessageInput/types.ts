@@ -114,19 +114,6 @@ export interface MessageInputProps {
   onConversationMemoryToggle?: () => void;
   /** Callback khi toggle tool format thay đổi */
   onConversationToolFormatToggle?: () => void;
-  /**
-   * Timestamp (ms) lúc nhận xong response cuối (isStreaming false → true transition).
-   * Dùng để tính cooldown timer trên toolbar.
-   * null = chưa có response nào.
-   */
-  lastResponseEndTime?: number | null;
-  /** Mốc bắt đầu chờ cooldown trước request tool-result. null = không chờ. Chỉ dùng cho viền progress. */
-  cooldownWaitStartTime?: number | null;
-  /**
-   * Thời gian cooldown (ms) giữa các request — lấy từ provider config.
-   * 0 hoặc undefined = không dùng cooldown.
-   */
-  requestCooldownMs?: number;
 }
 
 export interface ToggleButtonProps {

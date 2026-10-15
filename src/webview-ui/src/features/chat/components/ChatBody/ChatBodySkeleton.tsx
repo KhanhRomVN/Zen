@@ -1,6 +1,25 @@
+/**
+ * ------------------------------------------------------------------
+ * ChatBodySkeleton
+ * ------------------------------------------------------------------
+ * Component hiển thị trạng thái loading (skeleton screen) cho vùng nội dung chat.
+ * Mô phỏng cấu trúc của các tin nhắn user và assistant để giảm cảm giác chờ đợi
+ * khi tải dữ liệu ban đầu hoặc chuyển đổi conversation.
+ *
+ * Main features:
+ * - Hiển thị 5 cặp tin giả (User + Assistant) với hiệu ứng pulse
+ * - Bao gồm skeleton cho header, nội dung văn bản và tool action
+ * - Sử dụng CSS keyframes để tạo hiệu ứng nhấp nháy mượt mà
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ───────────────────────────────────────────────────────────
+// ── React ──
 import React from "react";
 
+// ─── Component ──────────────────────────────────────────────────────────
 const ChatBodySkeleton: React.FC = () => {
+  // ── Render ──
   return (
     <div
       className="chat-body-skeleton-scroll"

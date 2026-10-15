@@ -1,27 +1,46 @@
+/**
+ * ------------------------------------------------------------------
+ * ChatBody
+ * ------------------------------------------------------------------
+ * Container chính hiển thị danh sách tin nhắn trong cuộc trò chuyện.
+ * Quản lý parsing nội dung AI, xử lý tool actions,
+ * và điều khiển hành vi cuộn (auto-scroll). Tích hợp các thành phần con
+ * như SearchBar và MessageBox.
+ *
+ * Main features:
+ * - Caching kết quả parse message để tối ưu hiệu suất
+ * - Tự động cuộn xuống đáy khi có tin nhắn mới (có thể tạm dừng)
+ * - Hiển thị skeleton loading khi khởi tạo conversation
+ * - Hỗ trợ tìm kiếm nhanh trong toàn bộ nội dung chat
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ─
 import React, { useRef, useEffect, useMemo } from "react";
+
+// ── Services & Contexts ──
 import { parseAIResponse } from "../../services/ResponseParser";
 import { useSettings } from "@/context/SettingsContext";
+
+// ── Hooks ──
 import { useCollapseSections } from "../../hooks/ui/useCollapseSections";
 import { useToolActions } from "../../hooks/tools/useToolActions";
 import { useScrollBehavior } from "../../hooks/ui/useScrollBehavior";
-import { useMessagePagination } from "../../hooks/ui/useMessagePagination";
 import { useMessageParsing } from "../../hooks/messages/useMessageParsing";
 import { useMessageActions } from "../../hooks/messages/useMessageActions";
+
+// ── Components
 import ChatBodySkeleton from "./ChatBodySkeleton";
 import SearchBar from "./SearchBar";
-import ContinuingIndicator from "./ContinuingIndicatorBox";
-import ProcessingIndicator from "./ProcessingIndicator";
-import { LoadMoreButton } from "./LoadMoreButton";
 import MessageBoxWithErrorBoundary from "./MessageBox";
 import ContinueTaskButton from "./ContinueTaskButton";
-import { ExtendedChatBodyProps } from "./types";
+import WaitingIndicator from "./WaitingIndicator";
+// ── Types ─
+import { ExtendedChatBodyProps } from "../../types/chat-body.types";
 
 export type { ExtendedChatBodyProps };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ChatBody Component
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── Component ─────────────────────────────────────────────────────────
 const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   messages,
   isProcessing,
@@ -71,31 +90,31 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  // Message pagination
-  const {
-    visibleMessages: paginatedMessages,
-    hiddenCount,
-    loadMore,
-    loadAll,
-    hasHiddenMessages,
-  } = useMessagePagination({ messages, messagesPerPage: 10 });
+  // Refs to manage waiting timer without causing unnecessary re-renders of the whole list
+  const requestStartTimeRef = useRef<number | null>(null);
+  const prevIsProcessingRef = useRef<boolean>(false);
+
+  // Detect rising edge of isProcessing to capture start time synchronously during render
+  if (isProcessing && !prevIsProcessingRef.current) {
+    requestStartTimeRef.current = Date.now();
+  } else if (!isProcessing && prevIsProcessingRef.current) {
+    requestStartTimeRef.current = null;
+  }
+  prevIsProcessingRef.current = isProcessing;
 
   // Use shared parse cache from useMessageParsing hook
   const parsedMessagesFromHook = useMessageParsing(
-    paginatedMessages,
+    messages,
     isProcessing || isContinuing,
     toolFormat,
   );
 
   const parsedMessages = useMemo(() => {
-    if (
-      paginatedMessages.length > 0 &&
-      paginatedMessages[0].parsed !== undefined
-    ) {
-      return paginatedMessages;
+    if (messages.length > 0 && messages[0].parsed !== undefined) {
+      return messages;
     }
     return parsedMessagesFromHook;
-  }, [paginatedMessages, parsedMessagesFromHook]);
+  }, [messages, parsedMessagesFromHook]);
 
   const { collapsedSections, toggleCollapse } = useCollapseSections();
   const { clickedActions, handleToolClick, failedActions, rejectedActions } =
@@ -148,8 +167,8 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   }, [messages, isRestored, toolOutputs, permissionMode, clickedActions]);
 
   const visibleMessages = useMemo(
-    () => paginatedMessages.filter((msg) => !msg.uiHidden && !msg.isCancelled),
-    [paginatedMessages, firstRequestMessageId],
+    () => messages.filter((msg) => !msg.uiHidden && !msg.isCancelled),
+    [messages, firstRequestMessageId],
   );
 
   const lastAssistantIndex = useMemo(() => {
@@ -159,21 +178,48 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     return -1;
   }, [visibleMessages]);
 
-  const isResponding = useMemo(() => {
-    if (!isProcessing || visibleMessages.length === 0) return false;
-    const lastMessage = visibleMessages[visibleMessages.length - 1];
-    if (lastMessage.role !== "assistant") return false;
-    const parsedMessage = parsedMessages.find((pm) => pm.id === lastMessage.id);
-    if (!parsedMessage?.parsed) return false;
-    const parsed = parsedMessage.parsed;
-
-    if ((lastMessage.thinking?.trim().length ?? 0) > 0) return false;
-    if (parsed.contentBlocks?.some((b: any) => b.type === "thinking"))
+  // Determine if we are in the "waiting for first chunk" phase:
+  // isProcessing=true AND no assistant message has received meaningful content yet
+  const isWaitingForResponse = useMemo(() => {
+    if (!isProcessing) {
       return false;
-    if (parsed.displayText?.trim().length > 0) return false;
-    if (parsed.actions?.length > 0) return false;
+    }
+
+    if (!requestStartTimeRef.current) {
+      return false;
+    }
+
+    if (visibleMessages.length === 0) {
+      return true;
+    }
+
+    const lastMsg = visibleMessages[visibleMessages.length - 1];
+    if (lastMsg.role !== "assistant") {
+      return true;
+    }
+
+    const parsedMsg = parsedMessages.find((pm) => pm.id === lastMsg.id);
+    if (!parsedMsg?.parsed) {
+      return true;
+    }
+
+    const p = parsedMsg.parsed;
+
+    // Check conditions that mean we ARE receiving content (so stop waiting)
+    if ((lastMsg.thinking?.trim().length ?? 0) > 0) {
+      return false;
+    }
+    if (p.contentBlocks?.some((b: any) => b.type === "thinking")) {
+      return false;
+    }
+    if (p.displayText?.trim().length > 0) {
+      return false;
+    }
+    if (p.actions?.length > 0) {
+      return false;
+    }
     if (
-      parsed.contentBlocks?.some((b: any) => {
+      p.contentBlocks?.some((b: any) => {
         if (b.type === "thinking") return false;
         switch (b.type) {
           case "tool":
@@ -186,8 +232,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
             return false;
         }
       })
-    )
+    ) {
       return false;
+    }
 
     return true;
   }, [isProcessing, visibleMessages, parsedMessages]);
@@ -232,14 +279,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
               onSearchQueryChange={onSearchQueryChange}
               onCloseSearch={onCloseSearch}
               bodyRef={bodyRef}
-            />
-          )}
-
-          {hasHiddenMessages && (
-            <LoadMoreButton
-              hiddenCount={hiddenCount}
-              onLoadMore={loadMore}
-              onLoadAll={loadAll}
             />
           )}
 
@@ -342,16 +381,16 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
             });
           })()}
 
-          {/* PERF: Da bo streaming render ThinkingBlock — ProcessingIndicator thay the hoan toan */}
-
           {hasUnexecutedAutoActions && onContinue && (
             <ContinueTaskButton onContinue={onContinue} />
           )}
 
-          {isContinuing && <ContinuingIndicator />}
+          {(() => {
+            return null;
+          })()}
 
-          {(isProcessing || hasInitialMessage) && (
-            <ProcessingIndicator isResponding={isResponding} />
+          {isWaitingForResponse && requestStartTimeRef.current && (
+            <WaitingIndicator startTime={requestStartTimeRef.current} />
           )}
 
           <div ref={messagesEndRef} />

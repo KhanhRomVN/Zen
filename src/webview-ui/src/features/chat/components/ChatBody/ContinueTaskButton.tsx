@@ -1,12 +1,30 @@
+/**
+ * ------------------------------------------------------------------
+ * ContinueTaskButton
+ * ------------------------------------------------------------------
+ * Nút bấm cho phép người dùng tiếp tục thực hiện tác vụ còn dang dở
+ * sau khi quá trình streaming hoặc tool execution bị gián đoạn.
+ *
+ * Main features:
+ * - Hiển thị nút "Continue Task" với icon play
+ * - Trigger callback `onContinue` khi được nhấn
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ─
 import React from "react";
 
+// ─── Interfaces ────────────────────────────────────────────────────────
 interface ContinueTaskButtonProps {
   onContinue: () => void;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 const ContinueTaskButton: React.FC<ContinueTaskButtonProps> = ({
   onContinue,
 }) => {
+  // ── Render ──
   return (
     <div
       style={{

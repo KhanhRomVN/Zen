@@ -79,6 +79,8 @@ interface ProviderModelDrawerProps {
   isLoadingProviders?: boolean;
   apiUrl: string;
   onRefresh?: () => void;
+  /** Effort hiện tại user đang chọn trên toolbar — dùng để giữ selection khi pick model */
+  currentEffort?: EffortLevel;
   onSelect: (model: {
     providerId: string;
     modelId: string;
@@ -367,6 +369,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
   providers,
   isLoadingProviders = false,
   onRefresh,
+  currentEffort,
   onSelect,
 }) => {
   const activeDbName = useActiveDatabaseManagerName();
@@ -1050,12 +1053,16 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                           (parsed) =>
                                             parsed.effort as EffortLevel,
                                         );
+                                      // Ưu tiên: effort hiện tại user đang chọn → DEFAULT_EFFORT → effort đầu tiên khả dụng
                                       const pickedEffort =
-                                        availableEfforts.includes(DEFAULT_EFFORT)
-                                          ? DEFAULT_EFFORT
-                                          : EFFORT_LEVELS.find((lvl) =>
-                                              availableEfforts.includes(lvl),
-                                            );
+                                        currentEffort &&
+                                        availableEfforts.includes(currentEffort)
+                                          ? currentEffort
+                                          : availableEfforts.includes(DEFAULT_EFFORT)
+                                            ? DEFAULT_EFFORT
+                                            : EFFORT_LEVELS.find((lvl) =>
+                                                availableEfforts.includes(lvl),
+                                              );
                                       const finalModelId = pickedEffort
                                         ? `${baseId}-${pickedEffort}`
                                         : model.id;

@@ -1,5 +1,8 @@
 import type { ToolOutput } from "./tool-outputs";
-import { extensionService, messageDispatcher } from "@/services/ExtensionService";
+import {
+  extensionService,
+  messageDispatcher,
+} from "@/services/ExtensionService";
 
 // Common diagnostic type
 export interface Diagnostic {
@@ -20,11 +23,9 @@ export interface ExecutorContext {
   getToolTimeout: (actionType: string) => number;
   extensionService: typeof extensionService;
   messageDispatcher: typeof messageDispatcher;
-  // Optional fields for run_command and other special executors
   pendingToolResolvers?: Map<string, (result: string | null) => void>;
   commandStartTimes?: Map<string, number>;
   earlyCommandResults?: Map<string, any>;
-  /** Response number of the assistant message that triggered this tool execution (1-based). Used for revert tracking. */
   responseNumber?: number;
 }
 
@@ -33,7 +34,7 @@ export interface ToolExecutor {
   execute(
     action: any,
     context: ExecutorContext,
-    options?: ExecutorOptions
+    options?: ExecutorOptions,
   ): Promise<string | null>;
 }
 
