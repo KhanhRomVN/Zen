@@ -4,6 +4,7 @@ import { Message } from "../../types/message";
 import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "./useToolExecution";
 import { isToolClickable, TOOL_ACTION_TYPES } from "../../constants/constants";
+import { isQuestionFullyAnswered } from "../../utils/questionUtils";
 
 interface UseToolActionsProps {
   onSendToolRequest?: (
@@ -299,7 +300,7 @@ export const useToolActions = ({
         actionBlockIdx !== -1 &&
         contentBlocks.slice(0, actionBlockIdx).some((prevBlock: any) => {
           if (prevBlock.type === "question" && !prevBlock.optional) {
-            return !selectedOption;
+            return !isQuestionFullyAnswered(selectedOption);
           }
           if (prevBlock.type === "tool") {
             const prevActionId = `${lastMessage.id}-action-${prevBlock.actionIndex}`;

@@ -3,8 +3,6 @@
  * HomeHeader
  * ------------------------------------------------------------------
  * Header logo + title "Zen" + slogan xoay vòng cho Home.
- * Chỉ hiển thị khi HomeSidebar bị ẩn (webview < 700px) để không
- * trùng với logo/title trong sidebar.
  *
  * Main features:
  * - Logo + title gradient
@@ -31,12 +29,12 @@ interface HomeHeaderProps {
 }
 
 // ─── Component ──────────────────────────────────────────────────────────
-/** Header logo + title + slogan, chỉ hiện khi sidebar trái bị ẩn. */
+/** Header logo + title + slogan, luôn hiển thị ở Home panel. */
 const HomeHeader: React.FC<HomeHeaderProps> = ({ imagesUri }) => {
-  // ── State ──
+  // ── State ─
   const [sloganIndex, setSloganIndex] = useState(0);
 
-  // ── Effects ──
+  // ── Effects ─
   useEffect(() => {
     const timer = setInterval(() => {
       setSloganIndex((prev) => (prev + 1) % SLOGANS.length);
@@ -46,13 +44,18 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ imagesUri }) => {
 
   // ── Render ──
   return (
-    <div className="zen-home-header">
+    <div className="zen-home-header-inner">
       <style>{`
-        .zen-home-header { display: none; width: 100%; flex-direction: column; align-items: center; text-align: center; margin-bottom: 12px; }
-        @container zen-root (max-width: 699px) {
-          .zen-home-header { display: flex; }
+        .zen-home-header-inner { 
+          display: flex; 
+          width: 100%; 
+          flex-direction: column; 
+          align-items: center; 
+          text-align: center; 
         }
       `}</style>
+
+      {/* Logo & Title Row */}
       <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
         <div
           style={{
@@ -85,6 +88,8 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ imagesUri }) => {
           Zen
         </h1>
       </div>
+
+      {/* Slogan Row */}
       <div
         style={{
           height: "28px",

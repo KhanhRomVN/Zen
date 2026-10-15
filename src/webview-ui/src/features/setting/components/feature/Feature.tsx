@@ -208,7 +208,7 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
     return "";
   };
 
-  const placeholderText = "# Project Memory\n\n- User prefers dark mode.\n- Use TypeScript for new components.";
+  const placeholderText = "# Global Memory\n\n- User prefers dark mode.\n- Prefers TypeScript and concise code.";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -391,10 +391,10 @@ const FeatureSettings: React.FC = () => {
         icon={<Brain size={16} />}
         color="#a855f7"
         title="Memory"
-        description="Persist durable facts (preferences, conventions) across conversations within this project."
+        description="Persist general facts (preferences, coding style, priorities) across all projects and conversations."
       >
         <ToggleRow
-          title="Enable project memory"
+          title="Enable global memory"
           description="When on, the full content of memory.md is injected into every system prompt. The agent can read/update it via read_memory / update_memory tools."
           checked={memoryEnabled}
           onChange={setMemoryEnabled}

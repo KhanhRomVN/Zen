@@ -44,6 +44,7 @@ export const useFileUpload = (apiUrl: string) => {
         (f: any) =>
           !f.id?.startsWith("attached-") &&
           !f.id?.startsWith("rule-") &&
+          !f.id?.startsWith("skill-") &&
           !f.id?.startsWith("terminal-") &&
           !f.id?.startsWith("snippet-") &&
           !f.id?.startsWith("external-"),

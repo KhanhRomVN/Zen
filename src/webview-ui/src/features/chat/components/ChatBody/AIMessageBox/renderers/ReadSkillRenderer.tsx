@@ -10,11 +10,10 @@ import { BaseRendererProps } from "@/features/chat/types/renderer-types";
 import { TagHeader } from "../TagHeader";
 
 /**
- * Renderer dùng chung cho 4 tool liên quan tới SKILL marketplace:
- * search_skill, list_skill, read_skill, install_skill.
+ * Renderer cho tool read_skill (SKILL marketplace).
  * Hiển thị header (tool label + tham số chính) + khối output text, có thể collapse.
  */
-export const SkillToolRenderer: React.FC<BaseRendererProps> = ({
+export const ReadSkillRenderer: React.FC<BaseRendererProps> = ({
   action,
   actionIndex,
   messageId,
@@ -25,13 +24,9 @@ export const SkillToolRenderer: React.FC<BaseRendererProps> = ({
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const actionId = `${messageId}-action-${actionIndex}`;
 
-  const toolType = action.type as
-    | "search_skill"
-    | "list_skill"
-    | "read_skill"
-    | "install_skill";
+  const toolType = action.type as "read_skill";
 
-  const mainParam = action.params.search_term || action.params.slug || "";
+  const mainParam = action.params.skill_id || "";
 
   const isError = !!toolOutputs?.[actionId]?.isError;
   const output = toolOutputs?.[actionId]?.output || "";

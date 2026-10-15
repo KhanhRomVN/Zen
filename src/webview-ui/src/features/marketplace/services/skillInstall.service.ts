@@ -27,13 +27,19 @@ export type InstalledSkill = SkillSummary | SkillDetail;
  * Gửi lệnh tới extension host và chờ response theo requestId.
  */
 function requestExtension(
-  command: "listInstalledSkills" | "installSkill" | "uninstallSkill",
+  command:
+    | "listInstalledSkills"
+    | "installSkill"
+    | "uninstallSkill"
+    | "readSkillContent",
   payload: Record<string, any> = {},
 ): Promise<any> {
   return new Promise((resolve, reject) => {
     const requestId = `${command}-${Date.now()}-${Math.random()
       .toString(36)
       .slice(2, 8)}`;
+
+    const timeoutMs = command === "installSkill" ? 120000 : REQUEST_TIMEOUT_MS;
 
     messageDispatcher.register(
       requestId,
@@ -44,8 +50,8 @@ function requestExtension(
           resolve(message.data);
         }
       },
-      REQUEST_TIMEOUT_MS,
-      () => reject(new Error(`${command} timeout after ${REQUEST_TIMEOUT_MS}ms`)),
+      timeoutMs,
+      () => reject(new Error(`${command} timeout after ${timeoutMs}ms`)),
     );
 
     extensionService.postMessage({ command, requestId, ...payload });
@@ -68,4 +74,10 @@ export async function installSkill(
 /** Xoá skill khỏi thư mục skills/ theo slug. */
 export async function uninstallSkill(slug: string): Promise<void> {
   await requestExtension("uninstallSkill", { slug });
+}
+
+/** Đọc nội dung SKILL.md của skill đã cài; null nếu chưa cài / không có file. */
+export async function readSkillContent(slug: string): Promise<string | null> {
+  const data = await requestExtension("readSkillContent", { slug });
+  return typeof data === "string" ? data : null;
 }

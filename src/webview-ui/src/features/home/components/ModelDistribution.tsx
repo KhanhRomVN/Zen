@@ -1,6 +1,6 @@
 /**
  * ------------------------------------------------------------------
- * ModelDistributionCard
+ * ModelDistribution
  * ------------------------------------------------------------------
  * Card phân bố requests theo model: donut chart + danh sách model.
  *
@@ -14,12 +14,12 @@
  * ------------------------------------------------------------------
  */
 
-// ─── Imports ────────────────────────────────────────────────────────────
+// ─── Imports ───────────────────────────────────────────────────────────
 // ── React ──
 import React, { useMemo, useState } from "react";
 
 // ── Components ──
-import { formatTokens } from "./TokensByProviderCard";
+import { formatTokens } from "../utils/format";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface ModelEntry {
@@ -54,13 +54,13 @@ const ROW_GAP = 2; // khoảng cách giữa các dòng (px)
 const MAX_VISIBLE = 3; // số dòng tối đa hiển thị, vượt quá thì cuộn trong danh sách
 
 // ─── Component ──────────────────────────────────────────────────────────
-const ModelDistributionCard: React.FC<Props> = ({
+const ModelDistribution: React.FC<Props> = ({
   modelDistribution,
   providerFavicons,
   title,
   emptyText,
 }) => {
-  // ── State ──
+  // ── State ─
   const [hovered, setHovered] = useState<number | null>(null);
 
   // ── Derived ──
@@ -83,7 +83,7 @@ const ModelDistributionCard: React.FC<Props> = ({
   const cx = SIZE / 2;
   const hoveredModel = hovered !== null ? modelDistribution[hovered] : null;
 
-  // ── Render ──
+  // ── Render ─
   return (
     <div
       className="zen-dist"
@@ -100,7 +100,8 @@ const ModelDistributionCard: React.FC<Props> = ({
       }}
     >
       <style>{`
-        .zen-dist-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; min-height: 0; }
+        .zen-dist-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 16px; min-height: 0; }
+        .zen-dist-body[data-multi="true"] { justify-content: center; }
         .zen-dist-donut { width: 112px; height: 112px; flex-shrink: 0; display: block; }
         .zen-dist-list {
           width: 100%; display: flex; flex-direction: column; gap: ${ROW_GAP}px; min-width: 0;
@@ -159,11 +160,31 @@ const ModelDistributionCard: React.FC<Props> = ({
       </div>
 
       {n === 0 ? (
-        <span style={{ fontSize: "11px", opacity: 0.5, fontStyle: "italic" }}>
-          {emptyText}
-        </span>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            padding: "24px 16px",
+            minHeight: "120px",
+          }}
+        >
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.35, color: "var(--vscode-descriptionForeground)" }}>
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 6v6l4 2" />
+          </svg>
+          <span style={{ fontSize: "11px", color: "var(--vscode-descriptionForeground)", opacity: 0.7, textAlign: "center" }}>
+            {emptyText}
+          </span>
+          <span style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", opacity: 0.5, textAlign: "center" }}>
+            Gửi tin nhắn đầu tiên để xem phân bố model
+          </span>
+        </div>
       ) : (
-        <div className="zen-dist-body">
+        <div className="zen-dist-body" data-multi={n > 1 ? "true" : undefined}>
           {/* Donut */}
           <svg
             className="zen-dist-donut"
@@ -360,4 +381,4 @@ const ModelDistributionCard: React.FC<Props> = ({
   );
 };
 
-export default ModelDistributionCard;
+export default ModelDistribution;

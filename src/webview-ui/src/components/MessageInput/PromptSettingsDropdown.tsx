@@ -762,7 +762,7 @@ const PromptSettingsDropdown: React.FC<PromptSettingsDropdownProps> = ({
                     marginBottom: "1px",
                   }}
                 >
-                  Project memory
+                  Global memory
                 </div>
                 <div
                   style={{

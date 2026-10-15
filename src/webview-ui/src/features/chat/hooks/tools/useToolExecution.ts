@@ -11,6 +11,7 @@ import { parseAIResponse } from "../../services/ResponseParser";
 import { useSettings } from "../../../../context/SettingsContext";
 export { getPermissionDecision } from "../../utils/permissionUtils";
 import { getPermissionDecision } from "../../utils/permissionUtils";
+import { isQuestionFullyAnswered } from "../../utils/questionUtils";
 import {
   extensionService,
   messageDispatcher,
@@ -596,7 +597,9 @@ export const useToolExecution = ({
             );
             const selectedOption = currentMessage?.selectedOption;
             const hasQuestion = !!parsed.question;
-            const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+            const isQuestionAnswered = hasQuestion
+              ? isQuestionFullyAnswered(selectedOption)
+              : true;
 
             if (!isQuestionAnswered) {
             } else {
@@ -641,15 +644,34 @@ export const useToolExecution = ({
                   finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
                 }
 
-                handleSendMessageRef.current(
-                  finalContent,
-                  undefined,
-                  undefined,
-                  undefined,
-                  !hasAnyError || hasMalformedToolError, // 🔧 Skip wrapping for ANY error (including malformed)
-                  allActionIds,
-                  !hasAnyError,
-                );
+                try {
+                  const result = handleSendMessageRef.current(
+                    finalContent,
+                    undefined,
+                    undefined,
+                    undefined,
+                    !hasAnyError || hasMalformedToolError, // 🔧 Skip wrapping for ANY error (including malformed)
+                    allActionIds,
+                    !hasAnyError,
+                  );
+
+                  if (result instanceof Promise) {
+                    result
+                      .then(() => {})
+                      .catch((err) => {
+                        console.error(
+                          `[DEBUG][Cooldown] sendMessage promise rejected`,
+                          err,
+                        );
+                      });
+                  }
+                } catch (err) {
+                  console.error(
+                    `[DEBUG][Cooldown] handleSendMessageRef.current threw synchronously`,
+                    err,
+                  );
+                  throw err;
+                }
 
                 // Clear buffer
                 setAvailableToolResultsBuffer((prev) => {
@@ -776,7 +798,9 @@ export const useToolExecution = ({
 
         const parsed = parseAIResponse(msg.content, toolFormat);
         const hasQuestion = !!parsed.question;
-        const isQuestionAnswered = hasQuestion ? !!msg.selectedOption : true;
+        const isQuestionAnswered = hasQuestion
+          ? isQuestionFullyAnswered(msg.selectedOption)
+          : true;
 
         const allActionIds = parsed.actions.map(
           (_, idx: number) => `${msg.id}-action-${idx}`,

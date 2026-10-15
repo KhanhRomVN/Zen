@@ -1232,7 +1232,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   // Ẩn provider không có auth_method (không cần đăng nhập)
   const filteredProviders = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return providers.filter((p) => {
+    return (providers || []).filter((p) => {
       // Ẩn provider không có auth_method
       const raw = (p as any).auth_method ?? (p as any).auth_methods;
       let methods: string[] = [];

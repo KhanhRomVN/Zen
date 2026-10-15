@@ -106,7 +106,7 @@ const CARD_CSS = `
 .hc-stat { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 500; color: var(--secondary-text, #858585); flex-shrink: 0; }
 .hc-spacer { flex: 1; }
 .hc-viewonly { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; letter-spacing: .03em; color: #ca8a04; background: color-mix(in srgb, #eab308 14%, transparent); border: 1px solid color-mix(in srgb, #eab308 35%, transparent); flex-shrink: 0; }
-.hc-token { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; flex-shrink: 0; color: var(--tone); background: color-mix(in srgb, var(--tone) 14%, transparent); border: 1px solid color-mix(in srgb, var(--tone) 32%, transparent); }
+.hc-token { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; flex-shrink: 0; color: var(--tone); background: color-mix(in srgb, var(--tone) 14%, transparent); border: none; }
 
 .hc-tip { position: fixed; z-index: 2000; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; overflow: hidden; pointer-events: none; border-radius: 12px; background: var(--tertiary-bg, #2d2d30); border: 1px solid var(--border-color, #3e3e42); box-shadow: 0 12px 32px rgba(0,0,0,.35); }
 .hc-tip-title { font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--primary-text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }

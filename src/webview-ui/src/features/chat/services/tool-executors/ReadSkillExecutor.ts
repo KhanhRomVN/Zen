@@ -7,7 +7,7 @@ import { fetchSkillDetail } from "@/features/marketplace/services/skill.service"
 
 /**
  * Executor cho tool read_skill — fetch chi tiết + nội dung markdown đầy đủ
- * của 1 skill theo slug từ mcp.directory (không phụ thuộc skill đã cài local,
+ * của 1 skill theo skill_id từ mcp.directory (không phụ thuộc skill đã cài local,
  * vì skill cài từ leaderboard/search có thể chỉ có SkillSummary, thiếu content).
  */
 export class ReadSkillExecutor implements ToolExecutor {
@@ -17,7 +17,7 @@ export class ReadSkillExecutor implements ToolExecutor {
     _options: ExecutorOptions = {},
   ): Promise<string | null> {
     const { setToolOutputs } = context;
-    const slug = action.params.slug || "";
+    const skillId = action.params.skill_id || "";
     const actionId = action.actionId;
 
     if (action.params._validationError) {
@@ -26,11 +26,11 @@ export class ReadSkillExecutor implements ToolExecutor {
         ...prev,
         [actionId]: { output: `Error - ${errMsg}`, isError: true },
       }));
-      return `[read_skill for '${slug}'] Result: Error - ${errMsg}`;
+      return `[read_skill for '${skillId}'] Result: Error - ${errMsg}`;
     }
 
     try {
-      const detail = await fetchSkillDetail(slug);
+      const detail = await fetchSkillDetail(skillId);
       const output = [
         `Name: ${detail.name}`,
         `Description: ${detail.description}`,
@@ -46,14 +46,14 @@ export class ReadSkillExecutor implements ToolExecutor {
         [actionId]: { output, isError: false },
       }));
 
-      return `[read_skill for '${slug}'] Result:\n${output}`;
+      return `[read_skill for '${skillId}'] Result:\n${output}`;
     } catch (err: any) {
-      const errMsg = err?.message || `Failed to read skill "${slug}"`;
+      const errMsg = err?.message || `Failed to read skill "${skillId}"`;
       setToolOutputs((prev) => ({
         ...prev,
         [actionId]: { output: `Error - ${errMsg}`, isError: true },
       }));
-      return `[read_skill for '${slug}'] Result: Error - ${errMsg}`;
+      return `[read_skill for '${skillId}'] Result: Error - ${errMsg}`;
     }
   }
 }

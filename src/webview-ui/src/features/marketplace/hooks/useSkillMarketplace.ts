@@ -13,11 +13,15 @@
  * ------------------------------------------------------------------
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchLeaderboard,
   searchSkills,
   fetchSkillDetail,
+  getCachedLeaderboard,
+  getCachedSearch,
+  getCachedSkillDetail,
+  isCacheFresh,
 } from "../services/skill.service";
 import {
   listInstalledSkills,
@@ -56,8 +60,11 @@ export interface UseSkillMarketplaceResult {
 }
 
 export function useSkillMarketplace(): UseSkillMarketplaceResult {
-  const [skills, setSkills] = useState<SkillSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [skills, setSkills] = useState<SkillSummary[]>(
+    () => getCachedLeaderboard()?.data ?? [],
+  );
+  const [loading, setLoading] = useState(() => !getCachedLeaderboard());
+  const activeSlugRef = useRef<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,13 +85,20 @@ export function useSkillMarketplace(): UseSkillMarketplaceResult {
   );
 
   const loadLeaderboard = useCallback(async () => {
-    setLoading(true);
+    const cached = getCachedLeaderboard();
     setError(null);
+    if (cached) {
+      setSkills(cached.data);
+      setLoading(false);
+      if (isCacheFresh(cached)) return;
+    } else {
+      setLoading(true);
+    }
     try {
       const data = await fetchLeaderboard();
       setSkills(data);
     } catch (err: any) {
-      setError(err.message || "Failed to load skills");
+      if (!cached) setError(err.message || "Failed to load skills");
     } finally {
       setLoading(false);
     }
@@ -108,38 +122,60 @@ export function useSkillMarketplace(): UseSkillMarketplaceResult {
   }, [loadLeaderboard, reloadInstalled]);
 
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      if (!searchQuery.trim()) return;
-      setSearchLoading(true);
+    const query = searchQuery.trim();
+    if (!query) return;
+    const cached = getCachedSearch(query);
+    if (cached) {
+      setSkills(cached.data.skills);
       setError(null);
-      try {
-        const result = await searchSkills(searchQuery.trim());
-        setSkills(result.skills);
-      } catch (err: any) {
-        setError(err.message || "Search failed");
-      } finally {
-        setSearchLoading(false);
-      }
-    }, SEARCH_DEBOUNCE_MS);
+      if (isCacheFresh(cached)) return;
+    }
+    const timer = setTimeout(
+      async () => {
+        if (!cached) setSearchLoading(true);
+        setError(null);
+        try {
+          const result = await searchSkills(query);
+          setSkills(result.skills);
+        } catch (err: any) {
+          if (!cached) setError(err.message || "Search failed");
+        } finally {
+          setSearchLoading(false);
+        }
+      },
+      cached ? 0 : SEARCH_DEBOUNCE_MS,
+    );
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
   const handleBack = useCallback(() => {
+    activeSlugRef.current = null;
     setSelectedSkill(null);
     setDetailError(null);
+    setDetailLoading(false);
   }, []);
 
   const handleSkillClick = useCallback(async (skill: SkillSummary) => {
-    setDetailLoading(true);
+    activeSlugRef.current = skill.slug;
+    const cached = getCachedSkillDetail(skill.slug);
     setDetailError(null);
-    setSelectedSkill(null);
+    if (cached) {
+      setSelectedSkill(cached.data);
+      setDetailLoading(false);
+      if (isCacheFresh(cached)) return;
+    } else {
+      setSelectedSkill(null);
+      setDetailLoading(true);
+    }
     try {
       const detail = await fetchSkillDetail(skill.slug);
-      setSelectedSkill(detail);
+      if (activeSlugRef.current === skill.slug) setSelectedSkill(detail);
     } catch (err: any) {
-      setDetailError(err.message || "Failed to load skill detail");
+      if (!cached && activeSlugRef.current === skill.slug) {
+        setDetailError(err.message || "Failed to load skill detail");
+      }
     } finally {
-      setDetailLoading(false);
+      if (activeSlugRef.current === skill.slug) setDetailLoading(false);
     }
   }, []);
 

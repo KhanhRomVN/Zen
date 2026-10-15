@@ -8,6 +8,7 @@ import {
   GitCommitHorizontal,
   ScrollText,
   Plus as PlusIcon,
+  Sparkles,
 } from "lucide-react";
 import {
   Dropdown,
@@ -22,6 +23,7 @@ import {
 import { listRules, createRule, type Rule } from "../../services/ruleService";
 import type { AttachedItem } from "../../types/file-uploader";
 import RuleDrawer from "./RuleDrawer";
+import SkillPickerDrawer from "./SkillPickerDrawer";
 
 interface AttachmentOption {
   key: string;
@@ -50,9 +52,14 @@ interface ActionDropdownProps {
   currentModelConfig?: any;
   /** Gọi khi người dùng chọn (hoặc vừa tạo) 1 rule để gắn vào input. */
   onSelectRule?: (item: AttachedItem) => void;
+  /** Gọi khi xác nhận chọn skill — truyền toàn bộ tập skill mới (thay thế tập cũ). */
+  onSelectSkills?: (items: AttachedItem[]) => void;
+  /** Slug các skill đang gắn vào input — dùng để tick sẵn trong drawer. */
+  selectedSkillSlugs?: string[];
 }
 
 const RULE_COLOR = "#facc15";
+const SKILL_COLOR = "#8b5cf6";
 
 const ActionDropdown: React.FC<ActionDropdownProps> = ({
   onSelectAttach,
@@ -67,7 +74,11 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   currentModel,
   currentModelConfig,
   onSelectRule,
+  onSelectSkills,
+  selectedSkillSlugs,
 }) => {
+  const [skillDrawerOpen, setSkillDrawerOpen] = useState(false);
+
   // Prefer currentModelConfig (always fresh from API), fallback to currentModel (may be cached)
   const modelCaps = currentModelConfig ?? currentModel;
 
@@ -399,8 +410,57 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
           )}
 
 
+          {/* Skills — chỉ hiển thị nếu onSelectSkills được truyền */}
+          {onSelectSkills && (
+            <DropdownItem onClick={() => setSkillDrawerOpen(true)} noPadding>
+              <div style={rowStyle}>
+                <span style={badgeStyle(SKILL_COLOR)}>
+                  <Sparkles size={14} />
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "var(--primary-text)",
+                      marginBottom: "2px",
+                    }}
+                  >
+                    Skills
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--secondary-text)",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    Attach installed skills for the agent to use
+                  </div>
+                </div>
+              </div>
+            </DropdownItem>
+          )}
         </DropdownContent>
       </Dropdown>
+
+      {onSelectSkills && (
+        <SkillPickerDrawer
+          isOpen={skillDrawerOpen}
+          selectedSlugs={selectedSkillSlugs ?? []}
+          onClose={() => setSkillDrawerOpen(false)}
+          onConfirm={(skills) =>
+            onSelectSkills(
+              skills.map((s) => ({
+                id: `skill-${s.slug}`,
+                path: s.name,
+                type: "skill" as const,
+                skillSlug: s.slug,
+              })),
+            )
+          }
+        />
+      )}
 
       {onSelectRule && (
         <RuleDrawer

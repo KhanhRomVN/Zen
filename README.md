@@ -164,7 +164,7 @@ Zen integrates with VSCode's Language Server Protocol to catch type/syntax error
 - When `diagnosticEnabled = true`: the AI receives error reports from the language server and auto-fixes them
 - When `diagnosticEnabled = false`: the `LSP-DIAGNOSTICS-FALLBACK` constraint is added to the system prompt, requiring the AI to proactively run a linter/type-checker after every code change
 
-Supports TypeScript, Python, Rust, Go, Java, Ruby, C/C++ via language servers automatically installed to `~/.khanhromvn-zen/lsp/`.
+Supports any language that has a language server installed in VSCode.
 
 ---
 
@@ -332,11 +332,6 @@ All data is stored locally on your machine:
 │           ├── {conversationId}.json     ← all messages + metadata
 │           ├── checkpoints/              ← file snapshots before edits
 │           └── replace_history/         ← per-edit replace history
-└── lsp/
-    ├── typescript-language-server/
-    ├── pyright/
-    ├── rust-analyzer/
-    └── ...
 ```
 
 No data is sent to Zen's servers. AI requests go directly from your machine to the provider (OpenAI, Anthropic…).

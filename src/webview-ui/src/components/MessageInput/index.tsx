@@ -789,6 +789,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     enableViewOnlyMode = false,
     isViewOnly = false,
     onSelectRule,
+    onSelectSkills,
     onRemoveAttachedItem,
     conversationDiagnosticEnabled,
     conversationUseSkillEnabled,
@@ -799,6 +800,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     onConversationMemoryToggle,
     onConversationToolFormatToggle,
     lastResponseEndTime,
+    cooldownWaitStartTime,
     requestCooldownMs = 0,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
@@ -991,6 +993,12 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     );
     // isCoolingDown = true khi đang trong giai đoạn chờ
     const isCoolingDown = cooldownRemaining > 0;
+    const waitCooldownRemaining = useCooldownTimer(
+      cooldownWaitStartTime,
+      effectiveCooldownMs,
+    );
+    const isWaitingCooldown =
+      cooldownWaitStartTime != null && waitCooldownRemaining > 0;
 
     const displayModel = React.useMemo(() => {
       return currentModel || null;
@@ -1447,10 +1455,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             }}
           >
             {/* Border Depletion Progress — conic-gradient driven by cooldown timer */}
-            {isCoolingDown &&
+            {(isWaitingCooldown ||
+              (isCoolingDown && !isStreaming && !isProcessing)) &&
               !isViewOnly &&
-              !isStreaming &&
-              !isProcessing &&
               isConnected &&
               !isTimeBlocked &&
               !isTokenLimitExceeded &&
@@ -1460,7 +1467,12 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   effectiveCooldownMs > 0
                     ? Math.max(
                         0,
-                        Math.min(1, cooldownRemaining / effectiveCooldownMs),
+                        Math.min(
+                          1,
+                          (isWaitingCooldown
+                            ? waitCooldownRemaining
+                            : cooldownRemaining) / effectiveCooldownMs,
+                        ),
                       )
                     : 0;
                 // Angle of the visible arc (clockwise from top-left)
@@ -2165,10 +2177,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 justifyContent: "space-between",
                 alignItems: "center",
                 pointerEvents:
-                  !isConnected ||
-                  isTimeBlocked ||
-                  isViewOnlyProvider ||
-                  isCoolingDown
+                  !isConnected || isTimeBlocked || isViewOnlyProvider
                     ? "none"
                     : undefined,
               }}
@@ -2205,6 +2214,18 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   currentModel={currentModel}
                   currentModelConfig={currentModelConfig}
                   onSelectRule={onSelectRule}
+                  onSelectSkills={
+                    onSelectSkills &&
+                    ((items) => {
+                      onSelectSkills(items);
+                      if (items.length > 0 && !conversationUseSkillEnabled) {
+                        onConversationUseSkillToggle?.();
+                      }
+                    })
+                  }
+                  selectedSkillSlugs={(attachedItems ?? [])
+                    .filter((i: any) => i.type === "skill")
+                    .map((i: any) => i.skillSlug as string)}
                   triggerButton={
                     <div
                       onMouseEnter={() => setIsPlusHovered(true)}
@@ -2673,6 +2694,8 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     prevProps.lastResponseEndTime === nextProps.lastResponseEndTime;
   const requestCooldownMsSame =
     prevProps.requestCooldownMs === nextProps.requestCooldownMs;
+  const cooldownWaitStartTimeSame =
+    prevProps.cooldownWaitStartTime === nextProps.cooldownWaitStartTime;
 
   // Only re-render if critical props changed
   const shouldSkip =
@@ -2690,6 +2713,7 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     memorySame &&
     toolFormatSame &&
     lastResponseEndTimeSame &&
+    cooldownWaitStartTimeSame &&
     requestCooldownMsSame;
 
   return shouldSkip;

@@ -9,25 +9,28 @@
  */
 
 import React, { useState } from "react";
-import { List, Package, Search, FolderPlus } from "lucide-react";
+import { Archive, Search } from "lucide-react";
 import { useSkillMarketplace } from "./hooks/useSkillMarketplace";
 import {
   useSkillWorkspaceState,
   DEFAULT_GROUP_NAME,
 } from "./hooks/useSkillWorkspaceState";
-import { SkillList, SkillListSkeleton } from "./components/Skill/SkillList";
+import { SkillList } from "./components/Skill/SkillList";
 import {
   SkillDetail,
   SkillDetailSkeleton,
 } from "./components/Skill/SkillDetail";
-import { ManagerSkillView } from "./components/Skill/ManagerSkill";
+
 import { MCPPanel } from "./components/MCPPanel";
 import { ErrorState } from "./components/shared/StateViews";
 import {
   SkillGroupDrawer,
   type DrawerGroup,
-} from "./components/shared/SkillGroupDrawer";
+  type DrawerSkill,
+} from "./components/Skill/SkillGroupDrawer";
+import { buildSkillPreview } from "./utils/skillPreview";
 import type { SkillSummary } from "./types/skill.types";
+import { extensionService } from "../../services/ExtensionService";
 
 /* ==================================================================
  * SkillSearchBar — thanh tìm kiếm skill (style đồng bộ với searchbar
@@ -119,14 +122,14 @@ function SkillSearchBar({
 
 /* ==================================================================
  * SkillPanel — entry của SKILL tab. Workspace state (groups/toggles)
- * được lift lên đây để chia sẻ giữa ManagerSkillView và SkillGroupDrawer.
+ * được lift lên đây và dùng cho SkillGroupDrawer.
  * ================================================================== */
 
-type SkillViewMode = "list" | "manager";
 
 const iconButtonStyle: React.CSSProperties = {
   width: "34px",
   height: "34px",
+  boxSizing: "border-box",
   borderRadius: "8px",
   backgroundColor: "var(--input-bg)",
   border: "none",
@@ -139,8 +142,8 @@ const iconButtonStyle: React.CSSProperties = {
 };
 
 /**
- * Entry của SKILL tab — quản lý view switch giữa list-skill-view (Browse)
- * và manager-skill-view (Installed), cùng state từ useSkillMarketplace
+ * Entry của SKILL tab — danh sách Browse, nút Archive mở SkillGroupDrawer
+ * để quản lý skill đã cài, cùng state từ useSkillMarketplace
  * và useSkillWorkspaceState.
  */
 export function SkillPanel() {
@@ -156,7 +159,6 @@ export function SkillPanel() {
     detailError,
     installedSkills,
     installedSlugs,
-    installedLoading,
     loadLeaderboard,
     handleSkillClick,
     handleBack,
@@ -168,7 +170,7 @@ export function SkillPanel() {
 
   const workspaceState = useSkillWorkspaceState();
 
-  const [viewMode, setViewMode] = useState<SkillViewMode>("list");
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pendingInstallSkill, setPendingInstallSkill] =
     useState<SkillSummary | null>(null);
@@ -220,13 +222,21 @@ export function SkillPanel() {
     );
   }
 
-  const isManager = viewMode === "manager";
 
-  // Drawer group list — "Others" ở đầu (group mặc định), kèm count + tên skill.
-  const installedSlugSet = new Set(installedSkills.map((s) => s.slug));
-  const slugToName = new Map<string, string>();
+  // Drawer group list — "Others" ở đầu (group mặc định), kèm skill đã cài + preview.
+  const drawerSkillMap = new Map<string, DrawerSkill>();
   for (const s of installedSkills) {
-    if (s.slug) slugToName.set(s.slug, s.name || s.slug);
+    const key = s.slug || s.name;
+    if (!key) continue;
+    drawerSkillMap.set(key, {
+      slug: key,
+      name: s.name || key,
+      author: s.author,
+      preview: buildSkillPreview({
+        content: "content" in s ? s.content : undefined,
+        description: s.description,
+      }),
+    });
   }
   const assignedSlugs = new Set(
     workspaceState.state.groups.flatMap((g) => g.slugs),
@@ -234,47 +244,31 @@ export function SkillPanel() {
   const drawerGroups: DrawerGroup[] = [
     {
       name: DEFAULT_GROUP_NAME,
-      count: installedSkills.filter((s) => !s.slug || !assignedSlugs.has(s.slug))
-        .length,
-      skillNames: installedSkills
-        .filter((s) => !s.slug || !assignedSlugs.has(s.slug))
-        .map((s) => s.name || s.slug || "")
-        .filter(Boolean),
+      skills: Array.from(drawerSkillMap.values()).filter(
+        (s) => !assignedSlugs.has(s.slug),
+      ),
     },
-    ...workspaceState.state.groups.map((g) => {
-      const names = g.slugs
-        .filter((slug) => installedSlugSet.has(slug))
-        .map((slug) => slugToName.get(slug) || slug);
-      return {
-        name: g.name,
-        count: names.length,
-        skillNames: names,
-        icon: g.icon,
-      };
-    }),
+    ...workspaceState.state.groups.map((g) => ({
+      name: g.name,
+      icon: g.icon,
+      color: g.color,
+      description: g.description,
+      skills: g.slugs.flatMap((slug) => {
+        const s = drawerSkillMap.get(slug);
+        return s ? [s] : [];
+      }),
+    })),
   ];
 
   const rightSlot = (
-    <>
-      {isManager && (
-        <button
-          type="button"
-          onClick={openGroupManagerDrawer}
-          title="Manage groups"
-          style={iconButtonStyle}
-        >
-          <FolderPlus size={16} />
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={() => setViewMode(isManager ? "list" : "manager")}
-        title={isManager ? "Switch to Browse" : "Switch to Installed"}
-        style={iconButtonStyle}
-      >
-        {isManager ? <List size={16} /> : <Package size={16} />}
-      </button>
-    </>
+    <button
+      type="button"
+      onClick={openGroupManagerDrawer}
+      title="Manage installed skills"
+      style={iconButtonStyle}
+    >
+      <Archive size={16} />
+    </button>
   );
 
   return (
@@ -285,32 +279,18 @@ export function SkillPanel() {
         onClear={handleClearSearch}
         rightSlot={rightSlot}
       />
-      {isManager ? (
-        installedLoading ? (
-          <SkillListSkeleton count={4} />
-        ) : (
-          <ManagerSkillView
-            installedSkills={installedSkills}
-            searchQuery={searchQuery}
-            onSkillClick={handleSkillClick}
-            onToggleInstall={handleToggleInstall}
-            workspaceState={workspaceState}
-          />
-        )
-      ) : (
-        <SkillList
-          skills={skills}
-          loading={loading}
-          searchLoading={searchLoading}
-          error={error}
-          searchQuery={searchQuery}
-          installedSlugs={installedSlugs}
-          onRetry={loadLeaderboard}
-          onSkillClick={handleSkillClick}
-          onInstallClick={openInstallDrawer}
-          onUninstall={(skill) => handleUninstall(skill.slug)}
-        />
-      )}
+      <SkillList
+        skills={skills}
+        loading={loading}
+        searchLoading={searchLoading}
+        error={error}
+        searchQuery={searchQuery}
+        installedSlugs={installedSlugs}
+        onRetry={loadLeaderboard}
+        onSkillClick={handleSkillClick}
+        onInstallClick={openInstallDrawer}
+        onUninstall={(skill) => handleUninstall(skill.slug)}
+      />
 
       <SkillGroupDrawer
         isOpen={drawerOpen}
@@ -321,9 +301,26 @@ export function SkillPanel() {
           setPendingInstallSkill(null);
         }}
         onConfirmInstall={handleConfirmInstall}
-        onCreateGroup={workspaceState.addGroup}
-        onRenameGroup={workspaceState.renameGroup}
+        onCreateGroup={(name, meta) =>
+          workspaceState.addGroup(name, meta?.icon, {
+            color: meta?.color,
+            description: meta?.description,
+          })
+        }
+        onUpdateGroup={workspaceState.updateGroup}
         onDeleteGroup={(name) => workspaceState.removeGroup(name)}
+        onMoveSkill={workspaceState.assignSkillToGroup}
+        onOpenSkillFolder={(slug) =>
+          extensionService.postMessage({ command: "openSkillFolder", slug })
+        }
+        onOpenSkill={(slug) => {
+          setDrawerOpen(false);
+          handleSkillClick({ slug } as SkillSummary);
+        }}
+        onDeleteSkill={async (slug) => {
+          await handleUninstall(slug);
+          workspaceState.assignSkillToGroup(slug, DEFAULT_GROUP_NAME);
+        }}
       />
     </div>
   );

@@ -62,7 +62,7 @@ export const UpdateMemoryRenderer: React.FC<UpdateMemoryRendererProps> = ({
   const oldLines = String(oldContent).split("\n").filter(Boolean).length;
   const newLines = String(newContent).split("\n").filter(Boolean).length;
 
-  // ─── Resolve absolute path of memory.md (per-project) ──────────────
+  // ─── Resolve absolute path of memory.md (global) ──────────────
   const [memoryPath, setMemoryPath] = React.useState<string>("");
 
   React.useEffect(() => {

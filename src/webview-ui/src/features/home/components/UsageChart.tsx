@@ -1,6 +1,6 @@
 /**
  * ------------------------------------------------------------------
- * DailyUsageChart
+ * UsageChart
  * ------------------------------------------------------------------
  * Biểu đồ kết hợp (combo) hiển thị usage theo period đang chọn:
  * cột = Requests (trục trái), đường + vùng = Tokens (trục phải).
@@ -24,7 +24,7 @@
 // ─── Imports ────────────────────────────────────────────────────────────
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { StatsPeriod } from "../hooks/useStatsPeriod";
-import { formatTokens } from "./TokensByProviderCard";
+import { formatTokens } from "../utils/format";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface UsageEntry {
@@ -43,7 +43,7 @@ interface Point {
   y: number;
 }
 
-// ─── Constants ──────────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────────────
 const CHART_H = 120;
 const CHART_W = 600;
 const Y_TICKS = 4;
@@ -163,7 +163,7 @@ function formatTooltipHeader(dateStr: string, period: StatsPeriod): string {
 }
 
 // ─── Component ──────────────────────────────────────────────────────────
-const DailyUsageChart: React.FC<Props> = ({ usage, title, period = "day" }) => {
+const UsageChart: React.FC<Props> = ({ usage, title, period = "day" }) => {
   // ── State ──
   const [show, setShow] = useState<Record<Metric, boolean>>({
     requests: true,
@@ -177,7 +177,7 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title, period = "day" }) => {
   const plotRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // ── Derived ──
+  // ── Derived ─
   const n = usage.length;
   const reqColor = METRIC_META.requests.color;
   const tokColor = METRIC_META.tokens.color;
@@ -297,6 +297,7 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title, period = "day" }) => {
           justifyContent: "space-between",
           gap: "8px",
           flexWrap: "wrap",
+          flexShrink: 0,
         }}
       >
         <div
@@ -326,7 +327,7 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title, period = "day" }) => {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "6px",
-                  border: `1px solid ${active ? `color-mix(in srgb, ${c} 45%, transparent)` : "var(--vscode-widget-border, rgba(128,128,128,0.25))"}`,
+                  border: "none",
                   borderRadius: "5px",
                   padding: "2px 10px 2px 8px",
                   fontSize: "10px",
@@ -479,12 +480,12 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title, period = "day" }) => {
                 }}
               >
                 <defs>
-                  <linearGradient id="duc-tok-grad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="uc-tok-grad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" style={{ stopColor: tokColor }} stopOpacity="0.22" />
                     <stop offset="100%" style={{ stopColor: tokColor }} stopOpacity="0" />
                   </linearGradient>
                 </defs>
-                {tokArea && <path d={tokArea} fill="url(#duc-tok-grad)" />}
+                {tokArea && <path d={tokArea} fill="url(#uc-tok-grad)" />}
                 {tokLine && (
                   <path
                     d={tokLine}
@@ -673,4 +674,4 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title, period = "day" }) => {
   );
 };
 
-export default DailyUsageChart;
+export default UsageChart;

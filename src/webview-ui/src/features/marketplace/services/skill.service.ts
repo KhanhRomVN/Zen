@@ -23,6 +23,24 @@ import {
 } from "../../../services/ExtensionService";
 
 const REQUEST_TIMEOUT_MS = 15000;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+export interface CacheEntry<T> {
+  data: T;
+  ts: number;
+}
+
+let leaderboardCache: CacheEntry<SkillSummary[]> | null = null;
+const searchCache = new Map<string, CacheEntry<SkillSearchResponse>>();
+const detailCache = new Map<string, CacheEntry<SkillDetail>>();
+
+export const isCacheFresh = (entry: CacheEntry<unknown>): boolean =>
+  Date.now() - entry.ts < CACHE_TTL_MS;
+export const getCachedLeaderboard = () => leaderboardCache;
+export const getCachedSearch = (query: string) =>
+  searchCache.get(query) ?? null;
+export const getCachedSkillDetail = (slug: string) =>
+  detailCache.get(slug) ?? null;
 
 /**
  * Gửi request đến extension host và chờ response.
@@ -77,6 +95,7 @@ export async function fetchLeaderboard(): Promise<SkillSummary[]> {
     if (!skills || skills.length === 0) {
       throw new Error("No skills returned from leaderboard");
     }
+    leaderboardCache = { data: skills, ts: Date.now() };
     return skills;
   } catch (err: any) {
     console.error("fetchLeaderboard: ERROR", {
@@ -103,6 +122,7 @@ export async function searchSkills(
       limit,
       offset,
     })) as SkillSearchResponse;
+    searchCache.set(query, { data, ts: Date.now() });
     return data;
   } catch (err: any) {
     console.error("searchSkills: ERROR", {
@@ -126,6 +146,7 @@ export async function fetchSkillDetail(slug: string): Promise<SkillDetail> {
     if (!detail) {
       throw new Error(`No detail returned for "${slug}"`);
     }
+    detailCache.set(slug, { data: detail, ts: Date.now() });
     return detail;
   } catch (err: any) {
     console.error("fetchSkillDetail: ERROR", {

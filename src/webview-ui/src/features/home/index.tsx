@@ -17,24 +17,16 @@
 // ── React ──
 import React, { useEffect, useState } from "react";
 
-// ── UI ──
-import { Zap } from "lucide-react";
-
 // ── Utils ──
 import { getFaviconUrl } from "@/utils/favicon";
 
-// ── Components ──
+// ── Components ─
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 import StatsGrid from "./components/StatsGrid";
 
-import ModelDistributionCard from "./components/ModelDistributionCard";
-import { AccountStat } from "./utils/format";
-import TopAccountsCard from "./components/TopAccountsCard";
-import EfficiencyMapCard from "./components/EfficiencyMapCard";
-import HomeSidebar from "./components/HomeSidebar";
+import ModelDistribution from "./components/ModelDistribution";
 import HomeHeader from "./components/HomeHeader";
-import RecentActivity from "./components/RecentActivity";
 // ── Contexts ──
 import { useSettings } from "@/context/SettingsContext";
 import { useBackendConnection } from "@/context/BackendConnectionContext";
@@ -52,14 +44,13 @@ import {
 } from "../../utils/timeBlock";
 
 // ── Types ──
+import UsageChart from "./components/UsageChart";
+import HistoryConversation from "./components/HistoryConversation";
 import { ConversationItem } from "../history/types";
-import DailyUsageChart from "./components/DailyUsageChart";
-import InstallationBanner from "./components/InstallationBanner";
+import ConnectionErrorBanner from "./components/ConnectionErrorBanner";
 import AIWeb2APIUpdateBanner from "./components/AIWeb2APIUpdateBanner";
 import ZenUpdateBanner from "./components/ZenUpdateBanner";
 import { useZenUpdate } from "./hooks/useZenUpdate";
-import { useContainerWidth } from "./hooks/useContainerWidth";
-import SidebarWidthToggle from "./components/SidebarWidthToggle";
 
 import {
   useStatsPeriod,
@@ -81,8 +72,10 @@ const DashboardStats = React.memo(
     modelDistribution,
     providerFavicons,
     dailyUsage,
-    accounts,
     statsPeriod,
+    conversations,
+    isLoadingConversations,
+    onLoadConversation,
   }: {
     todayTokens: number;
     todayRequests: number;
@@ -91,8 +84,10 @@ const DashboardStats = React.memo(
     modelDistribution: any[];
     providerFavicons: Record<string, string>;
     dailyUsage: any[];
-    accounts: AccountStat[];
     statsPeriod: import("./hooks/useStatsPeriod").StatsPeriod;
+    conversations: ConversationItem[];
+    isLoadingConversations: boolean;
+    onLoadConversation?: (conversationId: string, tabId: number, folderPath: string | null) => void;
   }) => {
     const renderCountRef = React.useRef(0);
     renderCountRef.current++;
@@ -127,7 +122,7 @@ const DashboardStats = React.memo(
         </div>
 
         <div className="zen-home-dist">
-          <ModelDistributionCard
+          <ModelDistribution
             modelDistribution={modelDistribution}
             providerFavicons={providerFavicons}
             title="AI Model Distribution"
@@ -136,26 +131,15 @@ const DashboardStats = React.memo(
         </div>
 
         <div className="zen-home-usage">
-          <DailyUsageChart
-            usage={dailyUsage}
-            title="Usage"
-            period={statsPeriod}
-          />
+          <UsageChart usage={dailyUsage} title="Usage" period={statsPeriod} />
         </div>
 
-        <div className="zen-home-top">
-          <TopAccountsCard
-            accounts={accounts}
+        <div className="zen-home-history">
+          <HistoryConversation
+            conversations={conversations}
+            isLoading={isLoadingConversations}
+            onLoadConversation={onLoadConversation}
             providerFavicons={providerFavicons}
-            title="Top Accounts"
-          />
-        </div>
-
-        <div className="zen-home-ins">
-          <EfficiencyMapCard
-            accounts={accounts}
-            providerFavicons={providerFavicons}
-            title="Efficiency Map"
           />
         </div>
       </div>
@@ -163,7 +147,7 @@ const DashboardStats = React.memo(
   },
 );
 
-// ─── Interfaces ─────────────────────────────────────────────────────────
+// ─── Interfaces ────────────────────────────────────────────────────────
 interface HomePanelProps {
   onSendMessage: (
     content: string,
@@ -191,10 +175,8 @@ const HomePanel: React.FC<HomePanelProps> = ({
   onLoadConversation,
   initialValue,
 }) => {
-  // ── State ──
+  // ── State ─
 
-  const [conversations, setConversations] = useState<ConversationItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   // Snapshot cache đọc đồng bộ 1 lần ở lần render đầu → hiển thị data ngay
   const [initialCache] = useState(() => {
     const p = readCachedPeriodState();
@@ -230,53 +212,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
     Record<string, string>
   >(initialCache.global?.providerFavicons ?? {});
   const [providers, setProviders] = useState<any[]>([]);
-  const [accounts, setAccounts] = useState<AccountStat[]>([]);
-  const SIDEBAR_WIDTH_KEY = "zen.home.sidebarWidth";
-  const SIDEBAR_MIN = 240;
-  const SIDEBAR_MAX = 640;
-  const SIDEBAR_DEFAULT = 340;
-  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
-    try {
-      const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
-      if (saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) return saved;
-    } catch {}
-    return SIDEBAR_DEFAULT;
-  });
-  const [isResizing, setIsResizing] = useState(false);
-
-  const handleResizeStart = React.useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      const startX = e.clientX;
-      const startWidth = sidebarWidth;
-      let latest = startWidth;
-      setIsResizing(true);
-      document.body.style.userSelect = "none";
-      document.body.style.cursor = "col-resize";
-
-      const onMove = (ev: MouseEvent) => {
-        latest = Math.min(
-          SIDEBAR_MAX,
-          Math.max(SIDEBAR_MIN, startWidth + ev.clientX - startX),
-        );
-        setSidebarWidth(latest);
-      };
-      const onUp = () => {
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-        document.body.style.userSelect = "";
-        document.body.style.cursor = "";
-        setIsResizing(false);
-        try {
-          localStorage.setItem(SIDEBAR_WIDTH_KEY, String(latest));
-        } catch {}
-      };
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    },
-    [sidebarWidth],
-  );
   const [attachedItems, setAttachedItems] = React.useState<any[]>([]);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
 
   // ── Per-conversation feature toggles (default from global settings) ──
   const {
@@ -291,35 +229,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
   } = useSettings();
   const { isConnected, updateInfo } = useBackendConnection();
   const zenUpdateInfo = useZenUpdate();
-  const { ref: homeRef, tier, isWide } = useContainerWidth<HTMLDivElement>();
-
-  // Báo extension khi sidebar lịch sử của Home đang hiện (>= 700px, khớp CSS @container zen-root)
-  useEffect(() => {
-    const el = homeRef.current;
-    if (!el) return;
-    const HOME_SIDEBAR_MIN = 700;
-    let last: boolean | null = null;
-    const report = (visible: boolean) => {
-      if (last === visible) return;
-      last = visible;
-      (window as any).vscodeApi?.postMessage({
-        command: "setHistorySidebarVisible",
-        visible,
-      });
-    };
-    report(el.clientWidth >= HOME_SIDEBAR_MIN);
-    const ro = new ResizeObserver(([entry]) =>
-      report(entry.contentRect.width >= HOME_SIDEBAR_MIN),
-    );
-    ro.observe(el);
-    return () => {
-      ro.disconnect();
-      (window as any).vscodeApi?.postMessage({
-        command: "setHistorySidebarVisible",
-        visible: false,
-      });
-    };
-  }, [homeRef]);
 
   // ── Stats period picker ──
   const {
@@ -414,22 +323,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
 
   const imagesUri = (window as any).__zenImagesUri;
 
-  const sortedConversations = React.useMemo(() => {
-    return [...conversations].sort((a, b) => {
-      const timeA = new Date(
-        a.lastModified || a.timestamp || a.createdAt || 0,
-      ).getTime();
-      const timeB = new Date(
-        b.lastModified || b.timestamp || b.createdAt || 0,
-      ).getTime();
-      return timeB - timeA;
-    });
-  }, [conversations]);
-
   // ── Callbacks ──
-  // Memoize onLoadConversation to stabilize DashboardStats props
-  const stableOnLoadConversation = React.useCallback(onLoadConversation, []);
-
   const handleAddAttachedItem = React.useCallback((item: any) => {
     setAttachedItems((prev) => {
       const updated = [...prev, item];
@@ -559,13 +453,39 @@ const HomePanel: React.FC<HomePanelProps> = ({
     [],
   );
 
-  // ── Effects ──
+  // ── Effects ─
   // Trigger history limit enforcement on mount
   useEffect(() => {
     extensionService.postMessage({
       command: "getHistory",
       requestId: `home-enforce-${Date.now()}`,
     });
+  }, []);
+
+  // Fetch conversation history + listen for delete results
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const msg = event.data;
+      if (msg.command === "historyResult") {
+        if (msg.history) setConversations(msg.history);
+        setIsLoadingConversations(false);
+      } else if (msg.command === "deleteConversationResult") {
+        if (msg.success) {
+          setConversations((prev) =>
+            prev.filter((c) => c.id !== msg.conversationId),
+          );
+        }
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi) {
+      vscodeApi.postMessage({
+        command: "getHistory",
+        requestId: `home-hist-${Date.now()}`,
+      });
+    }
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
   // Áp snapshot đã cache của kỳ đang chọn ngay khi đổi period/offset (không đợi mạng)
@@ -576,7 +496,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
     setTodayRequests(snap.todayRequests);
     setFavoriteModel(snap.favoriteModel);
     setModelDistribution(snap.modelDistribution);
-    setAccounts(snap.accounts);
     setDailyUsage(snap.dailyUsage);
   }, [statsPeriod, statsOffset]);
 
@@ -624,7 +543,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
               (m: any) => m.total_requests > 0,
             );
             setModelDistribution(models.slice(0, 5));
-            setAccounts(stats.data.accounts || []);
             setDailyUsage(stats.data.usage || []);
             if (models.length > 0) setFavoriteModel(models[0].model_id);
             // Ghi cache theo đúng kỳ vừa fetch để lần mở/đổi kỳ sau hiện ngay
@@ -639,7 +557,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
               ),
               favoriteModel: models.length > 0 ? models[0].model_id : "—",
               modelDistribution: models.slice(0, 5),
-              accounts: stats.data.accounts || [],
               dailyUsage: stats.data.usage || [],
             });
           }
@@ -670,36 +587,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
     fetchStats();
   }, [apiUrl, statsPeriod, statsOffset, isConnected]);
 
-  // Fetch conversation history
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const msg = event.data;
-      if (msg.command === "historyResult") {
-        if (msg.history) setConversations(msg.history);
-        setIsLoading(false);
-      } else if (msg.command === "deleteConversationResult") {
-        if (msg.success) {
-          setConversations((prev) =>
-            prev.filter((c) => c.id !== msg.conversationId),
-          );
-        }
-      }
-    };
-    window.addEventListener("message", handleMessage);
-    const vscodeApi = (window as any).vscodeApi;
-    if (vscodeApi) {
-      vscodeApi.postMessage({
-        command: "getHistory",
-        requestId: `welcome-hist-${Date.now()}`,
-      });
-    }
-    return () => window.removeEventListener("message", handleMessage);
-  }, []);
-
   // ── Render ──
   return (
     <div
-      ref={homeRef}
       className="home-panel"
       style={{
         position: "relative",
@@ -709,77 +599,33 @@ const HomePanel: React.FC<HomePanelProps> = ({
         backgroundColor: "var(--primary-bg)",
         borderTop: "1px solid var(--border-color)",
         boxSizing: "border-box",
-        containerType: "inline-size",
-        containerName: "zen-root",
       }}
     >
-      <SidebarWidthToggle isWide={isWide} />
       <style>{`
-        .zen-home-sidebar { position: relative; flex-shrink: 0; height: 100%; min-height: 0; }
-        .zen-sidebar-resizer { position: absolute; top: 0; right: -4px; bottom: 0; width: 8px; cursor: col-resize; z-index: 10; }
-        .zen-sidebar-resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background-color 0.15s ease; }
-        .zen-sidebar-resizer:hover::after, .zen-sidebar-resizer.dragging::after { background: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder, #3b82f6)); }
-        @container zen-root (max-width: 699px) {
-          .zen-home-sidebar { display: none; }
-        }
         .zen-home-grid {
           display: grid;
-          gap: 12px;
+          gap: 16px;
           width: 100%;
           align-content: start;
           margin: 0 auto;
           grid-template-columns: minmax(0, 1fr);
-          grid-template-areas: "banner" "date" "stats" "dist" "usage" "recent";
+          /* Loại bỏ 'banner' và 'date' khỏi areas mặc định nếu chúng hay bị ẩn/rỗng */
+          /* Nếu cần hiển thị dynamic, ta sẽ xử lý bằng JS conditionals */
+          grid-template-areas: "header" "stats" "dist" "usage" "history";
         }
-        .zen-home-recent { grid-area: recent; min-width: 0; display: none; }
-        @container zen-root (max-width: 699px) {
-          .zen-home-recent { display: block; }
-        }
-        .zen-home-banner { grid-area: banner; min-width: 0; }
-        .zen-home-banner:empty { display: none; }
-        .zen-home-date { grid-area: date; min-width: 0; }
+        .zen-home-header { grid-area: header; min-width: 0; }
         .zen-home-stats { grid-area: stats; min-width: 0; }
         .zen-home-dist { grid-area: dist; min-width: 0; }
         .zen-home-usage { grid-area: usage; min-width: 0; }
-        .zen-home-ins { grid-area: ins; min-width: 0; display: none; }
-        .zen-home-prov { grid-area: prov; min-width: 0; display: none; }
-
-        .zen-home-top { grid-area: top; min-width: 0; display: none; }
+        .zen-home-history { grid-area: history; min-width: 0; }
+        
+        /* Styles bổ sung nếu sau này cần chèn banner/date động */
+        .zen-home-dynamic-slot { 
+           display: contents; /* Cho phép children tham gia trực tiếp vào grid cha nếu cần, hoặc remove wrapper */
+        }
         .zen-home-dist > div,
-        .zen-home-usage > div,
-        .zen-home-ins > div,
-        .zen-home-top > div { height: 100%; }
-        @container zen (min-width: 900px) {
-          .zen-home-grid {
-            gap: 16px;
-            grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
-            grid-template-areas: "banner banner" "date date" "stats stats" "usage dist" "usage dist" "top top" "ins ins";
-          }
-          .zen-home-ins, .zen-home-top { display: block; }
-        }
-        @container zen (min-width: 1300px) {
-          .zen-home-grid {
-            max-width: 1440px;
-            grid-template-columns: minmax(0, 1.75fr) minmax(0, 0.75fr) minmax(0, 1fr);
-            grid-template-areas: "banner banner banner" "date date date" "stats stats stats" "usage usage dist" "usage usage dist" "top ins ins";
-          }
-        }
+        .zen-home-usage > div { height: 100%; }
       `}</style>
-      <div className="zen-home-sidebar" style={{ width: sidebarWidth }}>
-        <HomeSidebar
-          imagesUri={imagesUri}
-          version={(window as any).__zenVersion}
-          conversations={sortedConversations}
-          isLoading={isLoading}
-          onLoadConversation={stableOnLoadConversation}
-          providerFavicons={providerFavicons}
-        />
-        <div
-          className={`zen-sidebar-resizer${isResizing ? " dragging" : ""}`}
-          onMouseDown={handleResizeStart}
-          title="Drag to resize"
-        />
-      </div>
       <div
         style={{
           flex: 1,
@@ -787,70 +633,71 @@ const HomePanel: React.FC<HomePanelProps> = ({
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          containerType: "inline-size",
-          containerName: "zen",
         }}
       >
-      {/* ─── Dashboard scroll area ─── */}
-      <div
-        style={{
-          flex: 1,
-          overflow: "auto",
-          backgroundColor: "var(--secondary-bg)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+        {/* ─── Dashboard scroll area ─── */}
         <div
           style={{
             flex: 1,
+            overflow: "auto",
+            backgroundColor: "var(--secondary-bg)",
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "flex-start",
-            padding:
-              tier === "compact" ? "20px 10px 16px 10px" : "32px 16px 20px 16px",
-            color: "var(--primary-text)",
-            animation: "fadeIn 0.5s ease-out",
-            maxWidth: "1200px",
-            margin: "0 auto",
-            width: "100%",
-            boxSizing: "border-box",
           }}
         >
-          <HomeHeader imagesUri={imagesUri} />
-          <div className="zen-home-grid">
-            <div className="zen-home-banner">
-              <InstallationBanner isConnected={isConnected} />
-              <ZenUpdateBanner updateInfo={zenUpdateInfo} />
-              <AIWeb2APIUpdateBanner updateInfo={updateInfo} />
-            </div>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              padding: "32px 16px 20px 16px",
+              color: "var(--primary-text)",
+              animation: "fadeIn 0.5s ease-out",
+              maxWidth: "1200px",
+              margin: "0 auto",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          >
+            <div className="zen-home-grid">
+              <div className="zen-home-header">
+                <HomeHeader imagesUri={imagesUri} />
+              </div>
 
+              {/* Banners rendered directly as grid items if needed, or wrapped conditionally */}
+              {(isConnected || zenUpdateInfo || updateInfo) && (
+                <div
+                  style={{
+                    gridColumn: "1 / -1",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
+                >
+                  <ConnectionErrorBanner isConnected={isConnected} />
+                  <ZenUpdateBanner updateInfo={zenUpdateInfo} />
+                  <AIWeb2APIUpdateBanner updateInfo={updateInfo} />
+                </div>
+              )}
 
-            <DashboardStats
-              todayTokens={todayTokens}
-              todayRequests={todayRequests}
-              favoriteModel={favoriteModel}
-              totalAccounts={totalAccounts}
-              modelDistribution={modelDistribution}
-              providerFavicons={providerFavicons}
-              dailyUsage={dailyUsage}
-              accounts={accounts}
-              statsPeriod={statsPeriod}
-            />
-
-            {/* Lịch sử: chỉ hiện khi HomeSidebar bị ẩn (< 700px) */}
-            <div className="zen-home-recent">
-              <RecentActivity
-                conversations={sortedConversations}
-                isLoading={isLoading}
-                onLoadConversation={stableOnLoadConversation}
+              <DashboardStats
+                todayTokens={todayTokens}
+                todayRequests={todayRequests}
+                favoriteModel={favoriteModel}
+                totalAccounts={totalAccounts}
+                modelDistribution={modelDistribution}
                 providerFavicons={providerFavicons}
+                dailyUsage={dailyUsage}
+                statsPeriod={statsPeriod}
+                conversations={conversations}
+                isLoadingConversations={isLoadingConversations}
+                onLoadConversation={onLoadConversation}
               />
             </div>
-          </div>
 
-          <style>{`
+            <style>{`
             @keyframes fadeIn {
               from { opacity: 0; transform: translateY(8px); }
               to   { opacity: 1; transform: translateY(0); }
@@ -870,111 +717,117 @@ const HomePanel: React.FC<HomePanelProps> = ({
               box-shadow: 0 4px 12px rgba(0,0,0,0.12);
             }
           `}</style>
+          </div>
         </div>
-      </div>
 
-      {/* ─── MessageInput ─── */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        style={{ display: "none" }}
-        onChange={handleFileInputChange}
-      />
-      <input
-        ref={externalFileInputRef}
-        type="file"
-        multiple
-        style={{ display: "none" }}
-        onChange={handleExternalFileInputChange}
-      />
-      {/* Wrapper cùng max-width/padding với dashboard để input thẳng hàng với content */}
-      <div
-        style={{
-          width: "100%",
-          backgroundColor: "var(--secondary-bg)",
-          flexShrink: 0,
-        }}
-      >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "1200px",
-          margin: "0 auto",
-          padding: "0 12px",
-          boxSizing: "border-box",
-        }}
-      >
-      <FilesPreviews
-        uploadedFiles={uploadedFiles}
-        attachedItems={attachedItems}
-        onRemoveFile={removeFile}
-        onRemoveAttachedItem={handleRemoveAttachedItemWrapper}
-        onOpenImage={(file) => {
-          const vscodeApi = (window as any).vscodeApi;
-          if (vscodeApi) {
-            vscodeApi.postMessage({
-              command: "openTempImage",
-              content: file.content,
-              filename: file.name,
-            });
-          }
-        }}
-        onAttachedItemClick={() => {}}
-      />
-      <MessageInput
-        message={message}
-        setMessage={setMessage}
-        isHistoryMode={false}
-        uploadedFiles={uploadedFiles}
-        attachedItems={attachedItems}
-        textareaRef={textareaRef}
-        handleTextareaChange={handleTextareaChange}
-        handleKeyDown={handleKeyDown}
-        handlePaste={handlePaste}
-        handleDragOver={handleDragOver}
-        handleDrop={handleDrop}
-        handleFileSelect={handleFileSelect}
-        onOpenProjectStructure={() => {}}
-        showChangesDropdown={false}
-        setShowChangesDropdown={() => {}}
-        messages={[]}
-        handleSend={handleSend}
-        hasProjectContext={false}
-        onOpenProjectContext={() => {}}
-        folderPath={folderPath || null}
-        isConversationStarted={false}
-        currentModel={currentModel}
-        setCurrentModel={setCurrentModel}
-        currentAccount={currentAccount}
-        setCurrentAccount={setCurrentAccount}
-        isProcessing={false}
-        isStreaming={false}
-        conversationDiagnosticEnabled={conversationDiagnosticEnabled}
-        conversationUseSkillEnabled={conversationUseSkillEnabled}
-        conversationMemoryEnabled={conversationMemoryEnabled}
-        conversationToolFormat={conversationToolFormat}
-        onConversationDiagnosticToggle={() => {
-          const next = !conversationDiagnosticEnabled;
-          setConversationDiagnosticEnabled(next);
-          setDiagnosticEnabled(next);
-        }}
-        onConversationUseSkillToggle={() => {
-          const next = !conversationUseSkillEnabled;
-          setConversationUseSkillEnabled(next);
-          setUseSkillEnabled(next);
-        }}
-        onConversationMemoryToggle={() => {
-          const next = !conversationMemoryEnabled;
-          setConversationMemoryEnabled(next);
-          setMemoryEnabled(next);
-        }}
-        onConversationToolFormatToggle={() => {
-          toggleConversationToolFormat();
-        }}
-      />
-      </div>
-      </div>
+        {/* ─── MessageInput ─── */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={handleFileInputChange}
+        />
+        <input
+          ref={externalFileInputRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={handleExternalFileInputChange}
+        />
+        {/* Wrapper cùng max-width/padding với dashboard để input thẳng hàng với content */}
+        <div
+          style={{
+            width: "100%",
+            backgroundColor: "var(--secondary-bg)",
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "1200px",
+              margin: "0 auto",
+              padding: "0 12px",
+              boxSizing: "border-box",
+            }}
+          >
+            <FilesPreviews
+              uploadedFiles={uploadedFiles}
+              attachedItems={attachedItems}
+              onRemoveFile={removeFile}
+              onRemoveAttachedItem={handleRemoveAttachedItemWrapper}
+              onOpenImage={(file) => {
+                const vscodeApi = (window as any).vscodeApi;
+                if (vscodeApi) {
+                  vscodeApi.postMessage({
+                    command: "openTempImage",
+                    content: file.content,
+                    filename: file.name,
+                  });
+                }
+              }}
+              onAttachedItemClick={() => {}}
+            />
+            <MessageInput
+              message={message}
+              setMessage={setMessage}
+              isHistoryMode={false}
+              uploadedFiles={uploadedFiles}
+              attachedItems={attachedItems}
+              onSelectSkills={(items) => {
+                attachedItems
+                  .filter((i: any) => i.type === "skill")
+                  .forEach((i: any) => handleRemoveAttachedItemWrapper(i.id));
+                items.forEach((item) => addAttachedItemWithCache(item));
+              }}
+              textareaRef={textareaRef}
+              handleTextareaChange={handleTextareaChange}
+              handleKeyDown={handleKeyDown}
+              handlePaste={handlePaste}
+              handleDragOver={handleDragOver}
+              handleDrop={handleDrop}
+              handleFileSelect={handleFileSelect}
+              onOpenProjectStructure={() => {}}
+              showChangesDropdown={false}
+              setShowChangesDropdown={() => {}}
+              messages={[]}
+              handleSend={handleSend}
+              hasProjectContext={false}
+              onOpenProjectContext={() => {}}
+              folderPath={folderPath || null}
+              isConversationStarted={false}
+              currentModel={currentModel}
+              setCurrentModel={setCurrentModel}
+              currentAccount={currentAccount}
+              setCurrentAccount={setCurrentAccount}
+              isProcessing={false}
+              isStreaming={false}
+              conversationDiagnosticEnabled={conversationDiagnosticEnabled}
+              conversationUseSkillEnabled={conversationUseSkillEnabled}
+              conversationMemoryEnabled={conversationMemoryEnabled}
+              conversationToolFormat={conversationToolFormat}
+              onConversationDiagnosticToggle={() => {
+                const next = !conversationDiagnosticEnabled;
+                setConversationDiagnosticEnabled(next);
+                setDiagnosticEnabled(next);
+              }}
+              onConversationUseSkillToggle={() => {
+                const next = !conversationUseSkillEnabled;
+                setConversationUseSkillEnabled(next);
+                setUseSkillEnabled(next);
+              }}
+              onConversationMemoryToggle={() => {
+                const next = !conversationMemoryEnabled;
+                setConversationMemoryEnabled(next);
+                setMemoryEnabled(next);
+              }}
+              onConversationToolFormatToggle={() => {
+                toggleConversationToolFormat();
+              }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

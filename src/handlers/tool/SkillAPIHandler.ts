@@ -47,7 +47,11 @@ function parseLeaderboardRSC(text: string): SkillSummary[] {
     const match = text.match(/"initialSkills"\s*:\s*(\[[\s\S]*?\])(?=\s*[,}])/);
     if (!match) return [];
     const parsed = JSON.parse(match[1]);
-    return Array.isArray(parsed) ? (parsed as SkillSummary[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as SkillSummary[]).map((s) => ({
+      ...s,
+      description: normalizeRSCValue(s.description) ?? "",
+    }));
   } catch (err: any) {
     console.error("[SkillAPIHandler] parse leaderboard error:", err.message);
     return [];

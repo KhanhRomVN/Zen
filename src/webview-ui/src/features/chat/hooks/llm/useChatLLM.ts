@@ -64,6 +64,16 @@ interface UseChatLLMProps {
   ) => void;
   /** Callback khi AI trả về <conversation_title> — cập nhật header ngay lập tức */
   onConversationTitleChange?: (title: string) => void;
+  /**
+   * Callback thông báo toàn bộ lượt trả lời đã kết thúc (markdown-only xong,
+   * hoặc chuỗi tool execution dừng hẳn). Dùng để trigger request cooldown
+   * chính xác thay vì suy đoán từ transition isStreaming.
+   */
+  onTurnComplete?: () => void;
+  /** Cooldown (ms) giữa các request liên tiếp, kể cả request tool-result tự động. 0 = tắt. */
+  requestCooldownMs?: number;
+  /** Báo mốc chờ cooldown trước request tool-result: truyền thời điểm stream trước kết thúc khi bắt đầu chờ, null khi chờ xong/bị hủy. */
+  onCooldownWait?: (waitStartTime: number | null) => void;
 }
 
 export const parseQuestionAnswerTag = (
@@ -127,6 +137,9 @@ export const useChatLLM = ({
   onToolRequest,
   onMalformedTool,
   onConversationTitleChange,
+  onTurnComplete,
+  requestCooldownMs = 0,
+  onCooldownWait,
 }: UseChatLLMProps) => {
   // Ref to hold per-conversation overrides (from Home panel or restored from metadata).
   // Only update if the new value is not undefined — prevents initialMessageData clear
@@ -151,6 +164,18 @@ export const useChatLLM = ({
       conversationOverridesRef.current = conversationOverrides;
     }
   }, [conversationOverrides, selectedTab?.sessionId]);
+  // Ref giữ onTurnComplete luôn mới nhất (tránh stale closure trong sendMessage async)
+  const onTurnCompleteRef = useRef(onTurnComplete);
+  useEffect(() => {
+    onTurnCompleteRef.current = onTurnComplete;
+  }, [onTurnComplete]);
+
+  const requestCooldownMsRef = useRef(requestCooldownMs);
+  requestCooldownMsRef.current = requestCooldownMs;
+  const lastStreamEndRef = useRef(0);
+  const onCooldownWaitRef = useRef(onCooldownWait);
+  onCooldownWaitRef.current = onCooldownWait;
+
   // Use extracted hooks
   const {
     streamingState,
@@ -333,15 +358,41 @@ export const useChatLLM = ({
         parent_message_id?: string;
       },
     ) => {
+      if (skipFirstRequestLogic && lastStreamEndRef.current > 0) {
+        const waitMs =
+          requestCooldownMsRef.current -
+          (Date.now() - lastStreamEndRef.current);
+        const waitStartedAt = Date.now();
+
+        if (waitMs > 0) {
+          const waitController = new AbortController();
+          abortControllerRef.current = waitController;
+          setIsProcessingSync(true);
+          onCooldownWaitRef.current?.(lastStreamEndRef.current);
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, waitMs);
+            waitController.signal.addEventListener(
+              "abort",
+              () => {
+                clearTimeout(timer);
+                resolve();
+              },
+              { once: true },
+            );
+          });
+
+          onCooldownWaitRef.current?.(null);
+          if (waitController.signal.aborted) {
+            setIsProcessingSync(false);
+            return;
+          }
+        }
+      }
+
       if (isProcessingRef.current && !skipFirstRequestLogic) {
-        console.warn(
-          `[Zen][sendMessage] BLOCKED - already processing | skipFirstRequestLogic=${skipFirstRequestLogic} | conversationId=${currentConversationIdRef.current} | content preview: ${content.substring(0, 50)}`,
-        );
         return;
       }
 
-      // ── Time-Block Check: Chặn DeepSeek trong giờ cấm ───────────────────
-      // Chỉ kiểm tra cho request đầu tiên của người dùng (không phải tool result).
       const currentProviderId =
         model?.providerId ?? lastUsedModelRef.current?.providerId;
       if (
@@ -672,6 +723,7 @@ export const useChatLLM = ({
               (f: any) =>
                 !f.id?.startsWith("attached-") &&
                 !f.id?.startsWith("rule-") &&
+                !f.id?.startsWith("skill-") &&
                 !f.id?.startsWith("terminal-") &&
                 !f.id?.startsWith("snippet-") && // 🚀 FIX: Don't upload text snippets
                 !f.id?.startsWith("external-"), // 🚀 FIX: Don't upload external files
@@ -842,104 +894,141 @@ export const useChatLLM = ({
         // (assistantMessage chưa tồn tại khi callback được định nghĩa)
         const claudeParsedContentRef = { value: "" };
 
-        // Stream the response using StreamingService
-        const { message: assistantMessage, backendConversationId } =
-          await StreamingService.streamChat(
-            {
-              apiUrl,
-              model: finalModel,
-              account: finalAccount,
-              messages: payloadMessages,
-              conversationId: convIdToSend,
-              parentMessageId: effectiveParentMessageId,
-              refFileIds: ref_file_ids,
-              abortSignal: abortController.signal,
-              // Pass the pre-generated fid so the provider stores the exact UUID we saved.
-              // For edit flow: editMessageId is the fid to overwrite (same value as messageFid).
-              // For chat flow: messageFid ensures the stored fid matches what Qwen server uses.
-              ...(qwenMessageFid ? { messageFid: qwenMessageFid } : {}),
-              ...(extraOptions?.user_action
-                ? { userAction: extraOptions.user_action }
-                : {}),
-              ...(extraOptions?.edit_message_id
-                ? { editMessageId: extraOptions.edit_message_id }
-                : {}),
-            },
-            {
-              onMetadata: (meta) => {
-                // Update qwen parent ID
-                if (meta.parent_id) {
-                  qwenParentIdRef.current = meta.parent_id;
-                }
+        // 🔧 COOLDOWN SAFETY NET: Race against a timeout so that if the provider
+        // hangs (empty response / dropped connection), we still notify turn-complete
+        // and unblock the input after the configured cooldown window.
+        // Reduced to 30s for faster recovery during testing/debugging.
+        const STREAM_TIMEOUT_MS = 30_000;
+        let streamTimerHandle: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          streamTimerHandle = setTimeout(() => {
+            reject(new Error("STREAM_TIMEOUT"));
+          }, STREAM_TIMEOUT_MS);
+        });
 
-                // Update last used model/account
-                if (meta.providerId || meta.modelId) {
-                  const serverModelId =
-                    meta.modelId || lastUsedModelRef.current?.id;
-                  const serverProviderId =
-                    meta.providerId || lastUsedModelRef.current?.providerId;
-                  const sentModelId = finalModel?.id;
-                  const sentProviderId = finalModel?.providerId;
-
-                  if (
-                    !lastUsedModelRef.current ||
-                    (serverModelId === sentModelId &&
-                      serverProviderId === sentProviderId)
-                  ) {
-                    lastUsedModelRef.current = {
-                      id: serverModelId,
-                      providerId: serverProviderId,
-                    };
+        let streamResult: Awaited<
+          ReturnType<typeof StreamingService.streamChat>
+        >;
+        try {
+          streamResult = await Promise.race([
+            StreamingService.streamChat(
+              {
+                apiUrl,
+                model: finalModel,
+                account: finalAccount,
+                messages: payloadMessages,
+                conversationId: convIdToSend,
+                parentMessageId: effectiveParentMessageId,
+                refFileIds: ref_file_ids,
+                abortSignal: abortController.signal,
+                // Pass the pre-generated fid so the provider stores the exact UUID we saved.
+                // For edit flow: editMessageId is the fid to overwrite (same value as messageFid).
+                // For chat flow: messageFid ensures the stored fid matches what Qwen server uses.
+                ...(qwenMessageFid ? { messageFid: qwenMessageFid } : {}),
+                ...(extraOptions?.user_action
+                  ? { userAction: extraOptions.user_action }
+                  : {}),
+                ...(extraOptions?.edit_message_id
+                  ? { editMessageId: extraOptions.edit_message_id }
+                  : {}),
+              },
+              {
+                onMetadata: (meta) => {
+                  // Update qwen parent ID
+                  if (meta.parent_id) {
+                    qwenParentIdRef.current = meta.parent_id;
                   }
-                }
 
-                if (meta.accountId) {
-                  lastUsedAccountRef.current = { id: meta.accountId };
-                }
+                  // Update last used model/account
+                  if (meta.providerId || meta.modelId) {
+                    const serverModelId =
+                      meta.modelId || lastUsedModelRef.current?.id;
+                    const serverProviderId =
+                      meta.providerId || lastUsedModelRef.current?.providerId;
+                    const sentModelId = finalModel?.id;
+                    const sentProviderId = finalModel?.providerId;
+
+                    if (
+                      !lastUsedModelRef.current ||
+                      (serverModelId === sentModelId &&
+                        serverProviderId === sentProviderId)
+                    ) {
+                      lastUsedModelRef.current = {
+                        id: serverModelId,
+                        providerId: serverProviderId,
+                      };
+                    }
+                  }
+
+                  if (meta.accountId) {
+                    lastUsedAccountRef.current = { id: meta.accountId };
+                  }
+                },
+                onContinuing: (isContinuing) => {
+                  setIsContinuingSync(isContinuing);
+                },
+                onRawContent: (content) => {
+                  // PERF: Khong goi setMessages trong streaming nua
+                  // Thay vao do chi tich luy vao ref, ProcessingIndicator tu hien thi timer
+                  // Tranh 130+ lan re-render toan bo UI moi khi stream
+                },
+                onContent: (content) => {
+                  // Anti-injection provider → strip conversation_title + parse tool markers.
+                  // Path mapping luôn bật vì claude.ai web dùng sandbox path
+                  // /home/claude/work/... cần convert về workspace.
+                  let finalContent = content;
+                  if (antiSystemPromptInjection) {
+                    const processed = processClaudeContent(content, rootPath);
+                    finalContent = processed.content;
+                  }
+
+                  // Lưu vào ref để apply vào assistantMessage sau khi streamChat return
+                  claudeParsedContentRef.value = finalContent;
+
+                  // Update UI with parsed content (called ONCE at the end with full content)
+                  setMessages((prev) => {
+                    const targetIndex = prev.findIndex(
+                      (m) => m.id === assistantMessageId,
+                    );
+                    if (targetIndex === -1) return prev;
+
+                    const currentMessage = prev[targetIndex];
+
+                    // Replace content and clear thinking
+                    const updatedMessage = {
+                      ...currentMessage,
+                      content: finalContent, // Replace with full parsed content
+                      thinking: undefined, // Clear thinking field after parsing
+                    };
+                    const newArray = prev.slice();
+                    newArray[targetIndex] = updatedMessage;
+                    return newArray;
+                  });
+                },
               },
-              onContinuing: (isContinuing) => {
-                setIsContinuingSync(isContinuing);
-              },
-              onRawContent: (content) => {
-                // PERF: Khong goi setMessages trong streaming nua
-                // Thay vao do chi tich luy vao ref, ProcessingIndicator tu hien thi timer
-                // Tranh 130+ lan re-render toan bo UI moi khi stream
-              },
-              onContent: (content) => {
-                // Anti-injection provider → strip conversation_title + parse tool markers.
-                // Path mapping luôn bật vì claude.ai web dùng sandbox path
-                // /home/claude/work/... cần convert về workspace.
-                let finalContent = content;
-                if (antiSystemPromptInjection) {
-                  const processed = processClaudeContent(content, rootPath);
-                  finalContent = processed.content;
-                }
+            ),
+            timeoutPromise,
+          ]);
+        } catch (raceErr) {
+          if ((raceErr as Error).message === "STREAM_TIMEOUT") {
+            console.warn(
+              `[DEBUG][Cooldown] STREAM_TIMEOUT after ${STREAM_TIMEOUT_MS}ms — forcing turn complete | skipFirstRequestLogic=${skipFirstRequestLogic}`,
+            );
+            abortController.abort();
+            onTurnCompleteRef.current?.();
+            setIsProcessingSync(false);
+            dispatchStreaming({ type: "RESET_STREAMING" });
+            return;
+          }
+          throw raceErr;
+        } finally {
+          clearTimeout(streamTimerHandle);
+        }
 
-                // Lưu vào ref để apply vào assistantMessage sau khi streamChat return
-                claudeParsedContentRef.value = finalContent;
+        const { message: assistantMessage, backendConversationId } =
+          streamResult;
 
-                // Update UI with parsed content (called ONCE at the end with full content)
-                setMessages((prev) => {
-                  const targetIndex = prev.findIndex(
-                    (m) => m.id === assistantMessageId,
-                  );
-                  if (targetIndex === -1) return prev;
-
-                  const currentMessage = prev[targetIndex];
-
-                  // Replace content and clear thinking
-                  const updatedMessage = {
-                    ...currentMessage,
-                    content: finalContent, // Replace with full parsed content
-                    thinking: undefined, // Clear thinking field after parsing
-                  };
-                  const newArray = prev.slice();
-                  newArray[targetIndex] = updatedMessage;
-                  return newArray;
-                });
-              },
-            },
-          );
+        lastStreamEndRef.current = Date.now();
 
         // Merge the final message from StreamingService with our tracked message
         assistantMessage.id = assistantMessageId;
@@ -1214,7 +1303,6 @@ export const useChatLLM = ({
           return;
         }
 
-        // Trigger tool request only if parsing succeeded
         if (
           !hasParsingError &&
           parsed &&
@@ -1261,9 +1349,6 @@ export const useChatLLM = ({
             : indexedActions;
 
           if (executableActions.length > 0) {
-            // Force execution for all providers including Claude.
-            // Suppression of "auto-send result back to AI" will be handled
-            // inside useToolExecution or downstream handlers based on provider ID.
             const isAutoTrigger = true;
 
             onToolRequest(
@@ -1272,10 +1357,16 @@ export const useChatLLM = ({
               isAutoTrigger,
               TOOL_ACTION_TYPES.ACCEPT,
             );
+          } else {
+            onTurnCompleteRef.current?.();
           }
-        } else if (parsed && parsed.actions?.length > 0 && hasParsingError) {
+        } else {
+          onTurnCompleteRef.current?.();
+        }
+
+        if (hasParsingError) {
           console.warn(
-            `[Zen][sendMessage] Skipping onToolRequest due to parsing error`,
+            `[Zen][sendMessage] Parsing error occurred but turn complete notified`,
           );
         }
       } catch (error) {
@@ -1287,7 +1378,12 @@ export const useChatLLM = ({
           return;
         }
 
-        console.error("[Zen sendMessage] error:", error);
+        console.error(
+          `[DEBUG][Cooldown] sendMessage CATCH | skipFirstRequestLogic=${skipFirstRequestLogic} | error=${error instanceof Error ? error.message : String(error)}`,
+        );
+        // Fallback: nếu vòng lặp tool-result bị lỗi, vẫn phải notify turn complete
+        onTurnCompleteRef.current?.();
+
         const errorMessage: Message = {
           id: `msg-${Date.now()}-error`,
           role: "assistant",

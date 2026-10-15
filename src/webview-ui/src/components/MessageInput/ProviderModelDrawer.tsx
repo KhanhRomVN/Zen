@@ -514,7 +514,10 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
   };
 
   const filteredProviders = useMemo(() => {
-    const mapped = providers
+    if (!Array.isArray(providers)) {
+      console.warn(`[DEBUG] ProviderModelDrawer providers is not array: ${typeof providers}`);
+    }
+    const mapped = (providers || [])
       .filter((p) => p.is_enabled !== false)
       .map((provider) => {
         const providerNameMatch = (provider.provider_name || "")

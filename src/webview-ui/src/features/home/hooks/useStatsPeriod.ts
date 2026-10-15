@@ -39,7 +39,6 @@ export interface StatsSnapshot {
   todayRequests: number;
   favoriteModel: string;
   modelDistribution: any[];
-  accounts: any[];
   dailyUsage: any[];
 }
 

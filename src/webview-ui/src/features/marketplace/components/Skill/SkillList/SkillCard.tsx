@@ -29,7 +29,7 @@ interface SkillCardProps {
 /**
  * Thẻ hiển thị tóm tắt 1 skill: name, author, description (2 dòng),
  * views và installs. Button ở góc phải trên có 3 state:
- * - "Install"    : chưa cài, soft-style (bg button 18% + text primary)
+ * - "Install"    : chưa cài, soft-style (bg vscode-foreground 12% + text vscode-foreground)
  * - "Installed"  : đã cài, solid (bg button + text trắng)
  * - "Uninstall"  : hover vào "Installed", soft-style error
  */
@@ -62,8 +62,8 @@ export function SkillCard({
   const buttonStyle: React.CSSProperties = !installed
     ? {
         backgroundColor:
-          "color-mix(in srgb, var(--vscode-button-background) 18%, transparent)",
-        color: "var(--primary-text)",
+          "color-mix(in srgb, var(--vscode-foreground) 12%, transparent)",
+        color: "var(--vscode-foreground)",
       }
     : btnHovered
       ? {

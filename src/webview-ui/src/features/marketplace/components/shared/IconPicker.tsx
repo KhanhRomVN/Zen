@@ -8,6 +8,8 @@ import {
 
 interface IconPickerProps {
   value?: string;
+  /** Màu accent đang chọn — icon dùng tông tối hơn của màu này. */
+  color?: string;
   onChange: (iconName: string) => void;
 }
 
@@ -16,7 +18,10 @@ interface IconPickerProps {
  * dropdown có searchbar lọc và grid ~8 cột, mỗi icon hover hiện tooltip
  * tên icon ngay lập tức (không có delay như title attribute).
  */
-export function IconPicker({ value, onChange }: IconPickerProps) {
+export function IconPicker({ value, color, onChange }: IconPickerProps) {
+  const tone = color
+    ? `color-mix(in srgb, ${color} 65%, #000)`
+    : "var(--primary-text)";
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [hoveredIcon, setHoveredIcon] = useState<string | null>(null);
@@ -59,10 +64,13 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
           padding: "8px 10px",
           borderRadius: "8px",
           border: "none",
-          backgroundColor: "var(--input-bg)",
-          color: "var(--primary-text)",
+          backgroundColor: color
+            ? `color-mix(in srgb, ${color} 16%, transparent)`
+            : "var(--input-bg)",
+          color: tone,
           cursor: "pointer",
           height: "34px",
+          transition: "background-color 0.13s ease, color 0.13s ease",
         }}
       >
         <CurrentIcon size={16} />
@@ -166,11 +174,9 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
                         border: "none",
                         cursor: "pointer",
                         backgroundColor: selected
-                          ? "color-mix(in srgb, var(--vscode-button-background) 25%, transparent)"
+                          ? `color-mix(in srgb, ${color ?? "var(--vscode-button-background)"} 25%, transparent)`
                           : "transparent",
-                        color: selected
-                          ? "var(--vscode-button-background)"
-                          : "var(--primary-text)",
+                        color: selected ? tone : "var(--primary-text)",
                       }}
                     >
                       <Icon size={16} />

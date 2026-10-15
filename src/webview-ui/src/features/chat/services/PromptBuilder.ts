@@ -1,8 +1,12 @@
 import { combinePromptsForMode } from "../prompts";
 import type { SystemPromptMode, PromptLengthMode } from "../prompts";
 import { buildClaudePrompt } from "../prompts/claude-system-prompt";
+import { buildAgentsMdSection } from "../prompts/agents-md";
 import { extensionService } from "@/services/ExtensionService";
-import { listInstalledSkills } from "@/features/marketplace/services/skillInstall.service";
+import {
+  listInstalledSkills,
+  readSkillContent,
+} from "@/features/marketplace/services/skillInstall.service";
 
 export interface PromptBuilderOptions {
   content: string;
@@ -76,9 +80,15 @@ export class PromptBuilder {
       systemPrompt = `${systemPrompt}${memorySection}`;
     }
 
+    if (isReq1 && systemPrompt && !antiSystemPromptInjection) {
+      const agentsMdContent = await extensionService.getAgentsMdSnapshot();
+      systemPrompt = `${systemPrompt}${buildAgentsMdSection(agentsMdContent)}`;
+    }
+
     // Build attached context
     if (files && files.length > 0) {
       attachedContextStr = await this.buildAttachedContext(files);
+      attachedContextStr += await this.buildSelectedSkillsSection(files);
     }
 
     // Build full content
@@ -190,9 +200,7 @@ export class PromptBuilder {
       const lines = skills.map((s) => {
         const desc = (s.description || "").replace(/\s+/g, " ").trim();
         const shortDesc = desc.length > 200 ? `${desc.slice(0, 200)}…` : desc;
-        // Cùng quy tắc chuẩn hoá tên file với SkillInstallHandler.slugToFile
-        const safeSlug = (s.slug as string).replace(/[^a-zA-Z0-9._-]/g, "_");
-        return `- **${s.name}**: ${shortDesc} (file: ${homeDir}/.khanhromvn-zen/skills/${safeSlug}.json)`;
+        return `- **${s.name}** (skill_id: ${s.slug}): ${shortDesc}`;
       });
 
       return `\n\n## Available Skills\nInstalled skills you can use. When a task matches a skill's description, read its file for the full instructions before acting.\n${lines.join("\n")}`;
@@ -283,5 +291,32 @@ export class PromptBuilder {
     }
 
     return attachedContextStr;
+  }
+
+  /**
+   * Nội dung SKILL.md của các skill người dùng chọn — nhúng thẳng vào prompt,
+   * không thuộc "Attached Context" (skill attached item chỉ phục vụ UI).
+   */
+  private static async buildSelectedSkillsSection(
+    files: any[],
+  ): Promise<string> {
+    const items = files.filter((f: any) => f.type === "skill");
+    if (items.length === 0) return "";
+
+    const blocks = await Promise.all(
+      items.map(async (f: any) => {
+        try {
+          const content = await readSkillContent(f.skillSlug || f.path);
+          return content ? `### ${f.path}\n${content.trim()}\n` : "";
+        } catch (e) {
+          console.warn("[PromptBuilder] Failed to read skill content:", e);
+          return "";
+        }
+      }),
+    );
+    const body = blocks.filter(Boolean).join("\n");
+    if (!body) return "";
+
+    return `\n\n## Skills\nThe user selected the following skills. Follow their instructions for this task.\n\n${body}`;
   }
 }

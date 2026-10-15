@@ -161,6 +161,25 @@ class ExtensionService {
   }
 
   /**
+   * Lấy nội dung AGENTS.md ở root workspace (tự tạo rỗng nếu là root project).
+   * Trả về "" nếu rỗng, không có workspace hoặc IPC timeout.
+   */
+  public getAgentsMdSnapshot(): Promise<string> {
+    return new Promise((resolve) => {
+      const requestId = `agents-md-${Date.now()}-${Math.random()}`;
+      messageDispatcher.register(
+        requestId,
+        (msg: any) => {
+          resolve(typeof msg.content === "string" ? msg.content : "");
+        },
+        3000,
+        () => resolve(""),
+      );
+      this.postMessage({ command: "getAgentsMdSnapshot", requestId });
+    });
+  }
+
+  /**
    * Ghi toàn bộ nội dung memory.md của project hiện tại.
    * Dùng bởi Settings → Feature → Memory editor (autosave).
    */

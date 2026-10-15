@@ -27,10 +27,7 @@ Use XML tags for all tool calls:
 <git_status></git_status>
 <git_diff></git_diff>
 <commit_message></commit_message>
-<search_skill><search_term>keyword</search_term></search_skill>
-<list_skill></list_skill>
-<read_skill><slug>skill-slug</slug></read_skill>
-<install_skill><slug>skill-slug</slug></install_skill>
+<read_skill>skill_id</read_skill>
 <read_memory />
 <update_memory><old_content>exact original</old_content><new_content>replacement</new_content></update_memory>
 
@@ -93,18 +90,10 @@ Examples:
 - \`<grep><search_term>import.*ContextMenu</search_term><folder_path>src/renderer/src</folder_path></grep>\` — finds lines containing "import" followed by "ContextMenu"
 - \`<grep><search_term>^function\\s+\\w+</search_term><folder_path>src</folder_path></grep>\` — finds function declarations
 - \`<grep><search_term>console\.(log|error|warn)</search_term><file_path>src/main.ts</file_path></grep>\` — finds console methods in a single file
-**search_skill**: Search skills on mcp.directory (SKILL marketplace) by keyword. Returns a list of matching skills, each with name, description, total views, and total installs.
-- \`search_term\`: The keyword to search for (required)
-- Example: \`<search_skill><search_term>pptx</search_term></search_skill>\`
-**list_skill**: List skills already installed locally (in \`~/.khanhromvn-zen/skills/\`). No parameters.
-- Example: \`<list_skill></list_skill>\`
-**read_skill**: Read the full detail and markdown content of one skill by its slug (fetched from mcp.directory, not limited to locally installed skills). Use this to see a skill's full instructions before installing or following it.
-- \`slug\`: The skill's slug (required, obtained from search_skill or list_skill results)
-- Example: \`<read_skill><slug>pptx-pro</slug></read_skill>\`
-**install_skill**: Install a skill locally by its slug (fetches full detail then saves it, same as clicking Install in the Marketplace UI).
-- \`slug\`: The skill's slug (required)
-- Example: \`<install_skill><slug>pptx-pro</slug></install_skill>\`
-**read_memory**: Read the full content of the project-level memory file (\`~/.khanhromvn-zen/projects/{projectHash}/memory.md\`). Takes no parameters — the self-closing form is sufficient. Only available when Memory is enabled for the conversation.
+**read_skill**: Read the full detail and markdown content of one skill by its id (fetched from mcp.directory). Use this to see a skill's full instructions before following it.
+- Text content: \`skill_id\` — the skill's id (required)
+- Example: \`<read_skill>pptx-pro</read_skill>\`
+**read_memory**: Read the full content of the global memory file (\`~/.khanhromvn-zen/memory.md\`, shared across all projects). Takes no parameters — the self-closing form is sufficient. Only available when Memory is enabled for the conversation.
 - Example: \`<read_memory />\`
 **update_memory**: Replace text inside the project-level memory file using exact-match semantics, identical to \`replace_in_file\` but always targeting \`memory.md\` (no \`file_path\` needed). Content should be written in Markdown format (headings, lists, bold, etc.).
 ⚠️ **IMPORTANT**: You MUST call \`read_memory\` immediately before \`update_memory\` to ensure your \`old_content\` matches the current file exactly. Stale guesses will fail.
@@ -280,16 +269,7 @@ Use JSON objects inside fenced code blocks for ALL output — both tool calls AN
 {"tool":"commit_message","params":{}}
 \`\`\`
 \`\`\`json
-{"tool":"search_skill","params":{"search_term":"keyword"}}
-\`\`\`
-\`\`\`json
-{"tool":"list_skill","params":{}}
-\`\`\`
-\`\`\`json
-{"tool":"read_skill","params":{"slug":"skill-slug"}}
-\`\`\`
-\`\`\`json
-{"tool":"install_skill","params":{"slug":"skill-slug"}}
+{"tool":"read_skill","params":{"skill_id":"skill_id"}}
 \`\`\`
 \`\`\`json
 {"tool":"read_memory","params":{}}
@@ -435,18 +415,10 @@ Examples:
 - \`{"tool":"grep","params":{"search_term":"import.*ContextMenu","folder_path":"src/renderer/src"}}\` — finds lines containing "import" followed by "ContextMenu"
 - \`{"tool":"grep","params":{"search_term":"^function\\\\s+\\\\w+","folder_path":"src"}}\` — finds function declarations
 - \`{"tool":"grep","params":{"search_term":"console\\\\.(log|error|warn)","file_path":"src/main.ts"}}\` — finds console methods in a single file
-**search_skill**: Search skills on mcp.directory (SKILL marketplace) by keyword. Returns a list of matching skills, each with name, description, total views, and total installs.
-- \`search_term\`: The keyword to search for (required)
-- Example: \`{"tool":"search_skill","params":{"search_term":"pptx"}}\`
-**list_skill**: List skills already installed locally (in \`~/.khanhromvn-zen/skills/\`). No parameters — pass an empty object.
-- Example: \`{"tool":"list_skill","params":{}}\`
-**read_skill**: Read the full detail and markdown content of one skill by its slug (fetched from mcp.directory, not limited to locally installed skills). Use this to see a skill's full instructions before installing or following it.
-- \`slug\`: The skill's slug (required, obtained from search_skill or list_skill results)
-- Example: \`{"tool":"read_skill","params":{"slug":"pptx-pro"}}\`
-**install_skill**: Install a skill locally by its slug (fetches full detail then saves it, same as clicking Install in the Marketplace UI).
-- \`slug\`: The skill's slug (required)
-- Example: \`{"tool":"install_skill","params":{"slug":"pptx-pro"}}\`
-**read_memory**: Read the full content of the project-level memory file (\`~/.khanhromvn-zen/projects/{projectHash}/memory.md\`). Takes no parameters — pass an empty object. Only available when Memory is enabled for the conversation.
+**read_skill**: Read the full detail and markdown content of one skill by its id (fetched from mcp.directory). Use this to see a skill's full instructions before following it.
+- \`skill_id\`: The skill's id (required)
+- Example: \`{"tool":"read_skill","params":{"skill_id":"pptx-pro"}}\`
+**read_memory**: Read the full content of the global memory file (\`~/.khanhromvn-zen/memory.md\`, shared across all projects). Takes no parameters — pass an empty object. Only available when Memory is enabled for the conversation.
 - Example: \`{"tool":"read_memory","params":{}}\`
 **update_memory**: Replace text inside the project-level memory file using exact-match semantics, identical to \`replace_in_file\` but always targeting \`memory.md\` (no \`file_path\` needed). Content should be written in Markdown format (headings, lists, bold, etc.).
 ⚠️ **IMPORTANT**: You MUST call \`read_memory\` immediately before \`update_memory\` to ensure your \`old_content\` matches the current file exactly. Stale guesses will fail.

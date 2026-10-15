@@ -86,10 +86,10 @@ export class PathService {
   }
 
   /**
-   * Đường dẫn file memory.md của project (per-project, không per-conversation):
-   * ~/.khanhromvn-zen/projects/{projectHash}/memory.md
+   * Đường dẫn file memory.md toàn cục (dùng chung cho mọi project):
+   * ~/.khanhromvn-zen/memory.md
    */
-  public getMemoryFilePath(workspaceFolderPath: string): string {
-    return path.join(this.getProjectContextDir(workspaceFolderPath), "memory.md");
+  public getMemoryFilePath(): string {
+    return path.join(this.getContextRoot(), "memory.md");
   }
 }

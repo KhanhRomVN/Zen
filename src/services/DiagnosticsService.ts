@@ -257,8 +257,6 @@ export class DiagnosticsService {
    * Skips non-code files automatically (returns empty array).
    * Skips files larger than MAX_FILE_SIZE_BYTES to avoid resource spikes.
    * This is the single entry point for all diagnostic needs.
-   *
-   * If custom LSP is enabled, auto-installs required LSP package before diagnostics.
    */
   public async getDiagnostics(
     uri: vscode.Uri,

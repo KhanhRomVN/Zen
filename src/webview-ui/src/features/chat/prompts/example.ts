@@ -127,32 +127,14 @@ This section shows how each tool is used correctly, and how several tools are co
 <commit_message></commit_message>
 \`\`\`
 
-### Example: search_skill
-**Description**: The user asks for something (e.g. generating a PPTX) that might be better handled by an installable skill from the marketplace.
-\`\`\`xml
-<search_skill><search_term>pptx</search_term></search_skill>
-\`\`\`
-
-### Example: list_skill
-**Description**: Checking what is already installed locally before suggesting or installing something new.
-\`\`\`xml
-<list_skill></list_skill>
-\`\`\`
-
 ### Example: read_skill
-**Description**: Inspecting a candidate skill's full instructions before committing to install it or follow its guidance.
+**Description**: Reading a skill's full instructions by its id before following its guidance.
 \`\`\`xml
-<read_skill><slug>pptx-pro</slug></read_skill>
-\`\`\`
-
-### Example: install_skill
-**Description**: Installing a skill locally after the user has confirmed they want it.
-\`\`\`xml
-<install_skill><slug>pptx-pro</slug></install_skill>
+<read_skill>pptx-pro</read_skill>
 \`\`\`
 
 ### Example: read_memory
-**Description**: Reading the full project-level memory file. Takes no parameters — the self-closing form is sufficient. Only available when Memory is enabled.
+**Description**: Reading the full global memory file. Takes no parameters — the self-closing form is sufficient. Only available when Memory is enabled.
 \`\`\`xml
 <read_memory />
 \`\`\`
@@ -447,19 +429,6 @@ const EXAMPLE_CORE_TAIL = `
 <!-- STOP. Only after seeing the fresh content does the next replace_in_file get written. -->
 \`\`\`
 
-### Batch 10: Skill marketplace workflow — search, inspect, install
-**Description**: The user asks for a PPTX export feature. The assistant checks locally installed skills first, searches the marketplace, inspects the top candidate, then installs it after implicit/explicit confirmation.
-\`\`\`xml
-<!-- Turn 1: check what's already installed, and search for options -->
-<list_skill></list_skill>
-<search_skill><search_term>pptx export</search_term></search_skill>
-
-<!-- Turn 2 (after results returned): inspect the best candidate before committing -->
-<read_skill><slug>pptx-pro</slug></read_skill>
-
-<!-- Turn 3 (after results returned, and user/context confirms): install it -->
-<install_skill><slug>pptx-pro</slug></install_skill>
-\`\`\`
 
 ### Batch 11: Git review-and-commit workflow
 **Description**: After a logical unit of work is complete, status and diff are checked before generating a commit message — never generating a message from assumption alone.
@@ -676,32 +645,14 @@ This section shows how each tool is used correctly in JSON format, and how tools
 {"tool":"commit_message","params":{}}
 \`\`\`
 
-### Example: search_skill
-**Description**: The user asks for something (e.g. generating a PPTX) that might be better handled by an installable skill from the marketplace.
-\`\`\`json
-{"tool":"search_skill","params":{"search_term":"pptx"}}
-\`\`\`
-
-### Example: list_skill
-**Description**: Checking what is already installed locally before suggesting or installing something new.
-\`\`\`json
-{"tool":"list_skill","params":{}}
-\`\`\`
-
 ### Example: read_skill
-**Description**: Inspecting a candidate skill's full instructions before committing to install it or follow its guidance.
+**Description**: Reading a skill's full instructions by its id before following its guidance.
 \`\`\`json
-{"tool":"read_skill","params":{"slug":"pptx-pro"}}
-\`\`\`
-
-### Example: install_skill
-**Description**: Installing a skill locally after the user has confirmed they want it.
-\`\`\`json
-{"tool":"install_skill","params":{"slug":"pptx-pro"}}
+{"tool":"read_skill","params":{"skill_id":"pptx-pro"}}
 \`\`\`
 
 ### Example: read_memory
-**Description**: Reading the full project-level memory file. Takes no parameters. Only available when Memory is enabled.
+**Description**: Reading the full global memory file. Takes no parameters. Only available when Memory is enabled.
 \`\`\`json
 {"tool":"read_memory","params":{}}
 \`\`\`
@@ -954,25 +905,6 @@ Turn 3 — stop guessing, re-read the file to get its true current content:
 \`\`\`
 STOP. Only after seeing the fresh content does the next replace_in_file get written.
 
-### Batch 10: Skill marketplace workflow — search, inspect, install
-**Description**: The user asks for a PPTX export feature. The assistant checks locally installed skills first, searches the marketplace, inspects the top candidate, then installs it after implicit/explicit confirmation.
-Turn 1 — check what's already installed, and search for options:
-\`\`\`json
-{"tool":"list_skill","params":{}}
-\`\`\`
-\`\`\`json
-{"tool":"search_skill","params":{"search_term":"pptx export"}}
-\`\`\`
-
-Turn 2 — after results returned, inspect the best candidate before committing:
-\`\`\`json
-{"tool":"read_skill","params":{"slug":"pptx-pro"}}
-\`\`\`
-
-Turn 3 — after results returned, and user/context confirms, install it:
-\`\`\`json
-{"tool":"install_skill","params":{"slug":"pptx-pro"}}
-\`\`\`
 
 ### Batch 11: Git review-and-commit workflow
 **Description**: After a logical unit of work is complete, status and diff are checked before generating a commit message — never generating a message from assumption alone.

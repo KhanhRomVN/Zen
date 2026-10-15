@@ -1,28 +1,31 @@
 import { extractParamValue } from "../../utils/ToolParser";
 
 export interface ReadSkillParams {
-  slug: string;
+  skill_id: string;
   _validationError?: string;
 }
 
 /**
  * Parse read_skill tool: đọc chi tiết + nội dung markdown đầy đủ của 1 skill
- * theo slug (fetch từ mcp.directory, không phụ thuộc skill đã cài local).
+ * theo skill_id (fetch từ mcp.directory, không phụ thuộc skill đã cài local).
+ * XML: <read_skill>skill_id</read_skill> — JSON: {"skill_id":"..."}.
  */
 export const parseReadSkill = (innerContent: string): ReadSkillParams => {
-  const slug = extractParamValue(innerContent, "slug");
+  const skillId = (
+    extractParamValue(innerContent, "skill_id") || innerContent
+  ).trim();
 
-  if (!slug || slug.trim() === "") {
-    const errorMsg = "Missing required parameter: slug";
+  if (!skillId) {
+    const errorMsg = "Missing required parameter: skill_id";
     console.error("[Zen][ReadSkillParser] Validation error:", {
       error: errorMsg,
       innerContent: innerContent.substring(0, 200),
     });
     return {
-      slug: "",
+      skill_id: "",
       _validationError: errorMsg,
     };
   }
 
-  return { slug };
+  return { skill_id: skillId };
 };

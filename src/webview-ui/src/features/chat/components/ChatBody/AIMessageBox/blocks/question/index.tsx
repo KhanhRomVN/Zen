@@ -320,21 +320,6 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     }
   };
 
-  const handleSubmitAllAnswers = () => {
-    if (!hasSubmittedRef.current) {
-      hasSubmittedRef.current = true;
-      onAllAnsweredProp?.(answers);
-    } else {
-      console.warn(
-        `[Zen][QuestionBlock] Blocked duplicate submission (handleSubmitAllAnswers)`,
-      );
-    }
-  };
-
-  const handleBackToEdit = () => {
-    setIsSummaryMode(false);
-    setCurrentIndex(0);
-  };
 
   // --- Single-choice custom value handlers ---
   const handleSingleCustomChange = (qId: string, value: string) => {
@@ -755,9 +740,6 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
         questions={questions}
         answers={answers}
         title={title}
-        onSubmit={handleSubmitAllAnswers}
-        onEdit={handleBackToEdit}
-        disabled={disabled}
       />
     );
   }
@@ -1028,7 +1010,10 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                     setCurrentIndex(currentIndex + 1);
                   } else {
                     setIsSummaryMode(true);
-                    // Don't auto-submit here — wait for user to click Submit in summary
+                    if (!hasSubmittedRef.current) {
+                      hasSubmittedRef.current = true;
+                      onAllAnsweredProp?.(allAnswers);
+                    }
                   }
                 }}
                 style={{

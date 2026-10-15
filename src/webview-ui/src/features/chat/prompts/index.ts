@@ -11,6 +11,7 @@ export { TOOL_VALIDATION } from "./tool-validation";
 // EXAMPLE used to be a plain constant; it is now mode-aware (see example.ts)
 // so it is exported as a builder function instead.
 export { buildExample } from "./example";
+export { buildAgentsMdSection } from "./agents-md";
 export { buildPromptForMode } from "./prompt-modes";
 export type {
   SystemPromptMode,

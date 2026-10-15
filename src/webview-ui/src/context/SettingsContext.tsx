@@ -151,7 +151,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     loadBool(workspaceKey("zen_use_skill_enabled"), false),
   );
   const [memoryEnabled, setMemoryEnabledState] = useState<boolean>(() =>
-    loadBool(workspaceKey("zen_memory_enabled"), false),
+    loadBool("zen_memory_enabled", false),
   );
   const [requestCooldownEnabled, setRequestCooldownEnabledState] =
     useState<boolean>(() => loadBool("zen_request_cooldown_enabled", true));
@@ -348,7 +348,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setMemoryEnabled = (value: boolean) => {
     setMemoryEnabledState(value);
-    persistBool(workspaceKey("zen_memory_enabled"), value);
+    persistBool("zen_memory_enabled", value);
   };
 
   const setRequestCooldownEnabled = (value: boolean) => {

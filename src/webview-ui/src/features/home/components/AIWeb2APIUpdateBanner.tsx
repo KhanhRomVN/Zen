@@ -7,13 +7,13 @@
  * Chỉ hiện khi health check trả về version field và GitHub API xác
  * nhận có bản mới hơn.
  *
- * Style: dùng cùng hệ thống với InstallationBanner (CSS-in-JS via
+ * Style: dùng cùng hệ thống với ConnectionErrorBanner (CSS-in-JS via
  * <style>), màu vàng/warning thay cho đỏ/error. CSS được export
  * (updateBannerStyles) để ZenUpdateBanner dùng lại.
  * ------------------------------------------------------------------
  */
 
-// ─── Imports ────────────────────────────────────────────────────────────
+// ─── Imports ───────────────────────────────────────────────────────────
 import React from "react";
 import { UpdateInfo } from "@/context/BackendConnectionContext";
 
@@ -160,7 +160,14 @@ const AIWeb2APIUpdateBanner: React.FC<AIWeb2APIUpdateBannerProps> = ({
       <div className="zen-update-banner" role="alert" aria-live="polite">
         <div className="zen-update-icon" aria-hidden="true">
           {/* Arrow-up-circle icon */}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <circle cx="12" cy="12" r="10" />
             <polyline points="16 12 12 8 8 12" />
             <line x1="12" y1="16" x2="12" y2="8" />
@@ -190,7 +197,8 @@ const AIWeb2APIUpdateBanner: React.FC<AIWeb2APIUpdateBannerProps> = ({
             >
               AIWeb2API
             </a>{" "}
-            is available. Download and replace the current binary to get the latest features and fixes.
+            is available. Download and replace the current binary to get the
+            latest features and fixes.
           </p>
         </div>
       </div>

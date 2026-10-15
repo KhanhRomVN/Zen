@@ -18,10 +18,7 @@ import { parseMarkdown } from "./parsers/MarkdownParser";
 import { parseQuestion } from "./parsers/QuestionParser";
 import { parseThinking } from "./parsers/ThinkingParser";
 import { parseConversationTitle } from "./parsers/ConversationTitleParser";
-import { parseSearchSkill } from "./parsers/SearchSkillParser";
-import { parseListSkill } from "./parsers/ListSkillParser";
 import { parseReadSkill } from "./parsers/ReadSkillParser";
-import { parseInstallSkill } from "./parsers/InstallSkillParser";
 import { parseReadMemory } from "./parsers/ReadMemoryParser";
 import { parseUpdateMemory } from "./parsers/UpdateMemoryParser";
 import { findClosingTagPosition } from "../utils/TagClosingFinder";
@@ -100,10 +97,7 @@ const jsonToolToAction = (
     case 'git_status': return { type: 'git_status', params: parseGitStatus(inner), rawXml: rawJson };
     case 'git_diff': return { type: 'git_diff', params: parseGitDiff(inner), rawXml: rawJson };
     case 'commit_message': return { type: 'commit_message', params: parseCommitMessage(inner), rawXml: rawJson };
-    case 'search_skill': return { type: 'search_skill', params: parseSearchSkill(inner), rawXml: rawJson };
-    case 'list_skill': return { type: 'list_skill', params: parseListSkill(inner), rawXml: rawJson };
     case 'read_skill': return { type: 'read_skill', params: parseReadSkill(inner), rawXml: rawJson };
-    case 'install_skill': return { type: 'install_skill', params: parseInstallSkill(inner), rawXml: rawJson };
     case 'read_memory': return { type: 'read_memory', params: parseReadMemory(inner), rawXml: rawJson };
     case 'update_memory': return { type: 'update_memory', params: parseUpdateMemory(inner), rawXml: rawJson };
     default: return null;
@@ -967,24 +961,9 @@ export const parseAIResponse = (content: string, toolFormat: 'xml' | 'json' = 'x
               action = { type: "commit_message" as const, params, rawXml };
               break;
             }
-            case "search_skill": {
-              const params = parseSearchSkill(innerContent || "");
-              action = { type: "search_skill" as const, params, rawXml };
-              break;
-            }
-            case "list_skill": {
-              const params = parseListSkill(innerContent || "");
-              action = { type: "list_skill" as const, params, rawXml };
-              break;
-            }
             case "read_skill": {
               const params = parseReadSkill(innerContent || "");
               action = { type: "read_skill" as const, params, rawXml };
-              break;
-            }
-            case "install_skill": {
-              const params = parseInstallSkill(innerContent || "");
-              action = { type: "install_skill" as const, params, rawXml };
               break;
             }
             case "read_memory": {
@@ -1150,17 +1129,8 @@ export const formatActionForDisplay = (action: ToolAction): string => {
       const count = action.params.items?.length || 0;
       return `git_status: ${count} changes`;
 
-    case "search_skill":
-      return `search_skill: ${action.params.search_term || ""}`;
-
-    case "list_skill":
-      return `list_skill`;
-
     case "read_skill":
-      return `read_skill: ${action.params.slug || ""}`;
-
-    case "install_skill":
-      return `install_skill: ${action.params.slug || ""}`;
+      return `read_skill: ${action.params.skill_id || ""}`;
 
     case "read_memory":
       return `read_memory`;

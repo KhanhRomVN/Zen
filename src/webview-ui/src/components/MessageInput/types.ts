@@ -94,6 +94,8 @@ export interface MessageInputProps {
   isViewOnly?: boolean;
   /** Gọi khi người dùng chọn (hoặc vừa tạo) 1 rule để gắn vào input. */
   onSelectRule?: (item: AttachedItem) => void;
+  /** Gọi khi xác nhận chọn skill — truyền toàn bộ tập skill mới (thay thế tập cũ). */
+  onSelectSkills?: (items: AttachedItem[]) => void;
   /** Gỡ 1 attached item theo id — dùng để gỡ badge Rule khỏi toolbar. */
   onRemoveAttachedItem?: (id: string) => void;
   /** Per-conversation override: diagnostic enabled (chỉ hiển thị ở Home panel) */
@@ -118,6 +120,8 @@ export interface MessageInputProps {
    * null = chưa có response nào.
    */
   lastResponseEndTime?: number | null;
+  /** Mốc bắt đầu chờ cooldown trước request tool-result. null = không chờ. Chỉ dùng cho viền progress. */
+  cooldownWaitStartTime?: number | null;
   /**
    * Thời gian cooldown (ms) giữa các request — lấy từ provider config.
    * 0 hoặc undefined = không dùng cooldown.

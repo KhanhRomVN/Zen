@@ -23,7 +23,13 @@ export interface SkillWorkspaceState {
   /** Map slug → trạng thái bật/tắt cho workspace hiện tại. */
   toggles: Record<string, boolean>;
   /** Danh sách group do user tạo; skill không thuộc group nào sẽ vào "Other". */
-  groups: Array<{ name: string; slugs: string[]; icon?: string }>;
+  groups: Array<{
+    name: string;
+    slugs: string[];
+    icon?: string;
+    color?: string;
+    description?: string;
+  }>;
   /** Map groupName → collapsed. */
   collapsedGroups: Record<string, boolean>;
 }

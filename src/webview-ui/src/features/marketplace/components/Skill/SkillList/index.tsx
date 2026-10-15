@@ -38,6 +38,8 @@ export function SkillList({
   onInstallClick,
   onUninstall,
 }: SkillListProps) {
+  const visibleSkills = skills.filter((s) => !installedSlugs.has(s.slug));
+
   if (loading) {
     return (
       <div style={{ flex: 1, overflowY: "auto" }}>
@@ -50,14 +52,16 @@ export function SkillList({
     <div style={{ flex: 1, overflowY: "auto" }}>
       {error && <ErrorState message={error} onRetry={onRetry} />}
 
-      {!error && skills.length === 0 && !searchQuery.trim() && <EmptyState />}
+      {!error && visibleSkills.length === 0 && !searchQuery.trim() && (
+        <EmptyState />
+      )}
 
       {!error &&
-        skills.length === 0 &&
+        visibleSkills.length === 0 &&
         searchQuery.trim() &&
         !searchLoading && <NoResultsState query={searchQuery} />}
 
-      {!error && skills.length > 0 && (
+      {!error && visibleSkills.length > 0 && (
         <div
           className="skill-grid"
           style={{
@@ -67,7 +71,7 @@ export function SkillList({
             padding: "0 16px 16px",
           }}
         >
-          {skills.map((skill) => (
+          {visibleSkills.map((skill) => (
             <SkillCard
               key={skill.id}
               skill={skill}

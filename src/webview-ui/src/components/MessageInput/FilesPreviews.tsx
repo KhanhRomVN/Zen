@@ -6,6 +6,7 @@ import {
   AudioLines,
   Video,
   FileCode2,
+  Sparkles,
 } from "lucide-react";
 import { getFileIconPath } from "@/utils/fileIconMapper";
 import TextSnippetDrawer from "./TextSnippetDrawer";
@@ -40,7 +41,7 @@ interface UploadedFile {
 interface AttachedItem {
   id: string;
   path: string;
-  type: "file" | "folder" | "external" | "text-snippet";
+  type: "file" | "folder" | "external" | "text-snippet" | "skill";
   content?: string;
 }
 
@@ -330,6 +331,7 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
     (i) => (i.type as any) === "terminal",
   );
   const snippetItems = attachedItems.filter((i) => i.type === "text-snippet");
+  const skillItems = attachedItems.filter((i) => i.type === "skill");
 
   if (uploadedFiles.length === 0 && attachedItems.length === 0) return null;
 
@@ -643,6 +645,63 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                 )}
               </div>
             ))}
+          </Section>
+        )}
+
+        {/* ── Skills ── */}
+        {skillItems.length > 0 && (
+          <Section label="Skills:">
+            {skillItems.map((item) => {
+              const SKILL_COLOR = "#8b5cf6";
+              return (
+                <div
+                  key={item.id}
+                  title={item.path}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    border: `1px solid color-mix(in srgb, ${SKILL_COLOR} 20%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${SKILL_COLOR} 8%, transparent)`,
+                    maxWidth: "192px",
+                    boxSizing: "border-box",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      color: SKILL_COLOR,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Sparkles size={13} />
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "var(--primary-text)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {item.path}
+                  </span>
+                  {!readOnly && (
+                    <RemoveX
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveAttachedItem(item.id);
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </Section>
         )}
 

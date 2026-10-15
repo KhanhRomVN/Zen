@@ -10,9 +10,6 @@ interface QuestionSummaryProps {
   questions: Question[];
   answers: Record<string, QuestionAnswer>;
   title?: string;
-  onSubmit?: () => void;
-  onEdit?: () => void;
-  disabled?: boolean;
 }
 
 /**
@@ -23,9 +20,6 @@ const QuestionSummary: React.FC<QuestionSummaryProps> = ({
   questions,
   answers,
   title,
-  onSubmit,
-  onEdit,
-  disabled = false,
 }) => {
   const formatAnswer = (answer: QuestionAnswer): string => {
     const value = answer.value;
@@ -227,125 +221,6 @@ const QuestionSummary: React.FC<QuestionSummaryProps> = ({
           })}
         </div>
 
-        {onSubmit && onEdit && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              gap: "8px",
-              marginTop: "16px",
-              paddingTop: "12px",
-              borderTop:
-                "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)",
-            }}
-          >
-            <button
-              onClick={onEdit}
-              disabled={disabled}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "6px 12px",
-                backgroundColor:
-                  "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)",
-                color: "var(--vscode-descriptionForeground)",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "11px",
-                fontWeight: 500,
-                lineHeight: "1",
-                cursor: disabled ? "not-allowed" : "pointer",
-                opacity: disabled ? 0.4 : 1,
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                if (!disabled) {
-                  e.currentTarget.style.backgroundColor =
-                    "color-mix(in srgb, var(--vscode-descriptionForeground) 25%, transparent)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!disabled) {
-                  e.currentTarget.style.backgroundColor =
-                    "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)";
-                }
-              }}
-            >
-              <span
-                className="codicon codicon-edit"
-                style={{
-                  fontSize: "11px",
-                  lineHeight: "1",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              />
-              <span
-                style={{
-                  lineHeight: "1",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                Edit
-              </span>
-            </button>
-
-            <button
-              onClick={onSubmit}
-              disabled={disabled}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "6px 14px",
-                backgroundColor: "var(--vscode-button-background)",
-                color: "var(--vscode-button-foreground)",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "11px",
-                fontWeight: 500,
-                lineHeight: "1",
-                cursor: disabled ? "not-allowed" : "pointer",
-                opacity: disabled ? 0.4 : 1,
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                if (!disabled) {
-                  e.currentTarget.style.backgroundColor =
-                    "var(--vscode-button-hoverBackground)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!disabled) {
-                  e.currentTarget.style.backgroundColor =
-                    "var(--vscode-button-background)";
-                }
-              }}
-            >
-              <span
-                style={{
-                  lineHeight: "1",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                Submit
-              </span>
-              <span
-                className="codicon codicon-send"
-                style={{
-                  fontSize: "11px",
-                  lineHeight: "1",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              />
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

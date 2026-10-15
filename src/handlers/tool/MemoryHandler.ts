@@ -2,8 +2,8 @@
  * ------------------------------------------------------------------
  * Memory Handler
  * ------------------------------------------------------------------
- * Quản lý file memory.md per-project tại:
- *   ~/.khanhromvn-zen/projects/{projectHash}/memory.md
+ * Quản lý file memory.md toàn cục (dùng chung mọi project) tại:
+ *   ~/.khanhromvn-zen/memory.md
  *
  * Hai thao tác:
  * - handleReadMemory()    : Đọc toàn bộ nội dung memory.md (trả "" nếu chưa có)
@@ -30,9 +30,7 @@ export class MemoryHandler {
   }
 
   private getMemoryFilePath(): string | null {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return null;
-    return this.pathService.getMemoryFilePath(workspaceFolder.uri.fsPath);
+    return this.pathService.getMemoryFilePath();
   }
 
   private ensureParentDir(filePath: string): void {
@@ -228,10 +226,7 @@ export class MemoryHandler {
    */
   public static getMemorySnapshot(): string {
     try {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) return "";
-      const svc = PathService.getInstance();
-      const fp = svc.getMemoryFilePath(workspaceFolder.uri.fsPath);
+      const fp = PathService.getInstance().getMemoryFilePath();
       if (!fs.existsSync(fp)) return "";
       return fs.readFileSync(fp, "utf8");
     } catch {

@@ -21,7 +21,7 @@ export interface AccountStat {
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────
-/** Màu theo thứ hạng account; TopAccountsCard và AccountInsightsCard dùng chung để khớp nhau. */
+/** Màu theo thứ hạng account; dùng chung để khớp nhau. */
 export const ACCOUNT_COLORS = [
   "var(--vscode-textLink-foreground, #3b82f6)",
   "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",

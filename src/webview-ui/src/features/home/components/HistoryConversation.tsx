@@ -1,6 +1,6 @@
 /**
  * ------------------------------------------------------------------
- * RecentActivity
+ * HistoryConversation
  * ------------------------------------------------------------------
  * Component hiển thị danh sách hội thoại gần đây trong Home panel.
  * Tái sử dụng HistoryCard từ feature history.
@@ -13,7 +13,7 @@
  */
 
 // ─── Imports ────────────────────────────────────────────────────────────
-// ── React ──
+// ── React ─
 import React from "react";
 
 // ── UI ──
@@ -26,7 +26,7 @@ import HistoryCard from "../../history/components/HistoryCard";
 import { ConversationItem } from "../../history/types";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
-interface RecentActivityProps {
+interface HistoryConversationProps {
   conversations: ConversationItem[];
   isLoading: boolean;
   onLoadConversation?: (
@@ -38,7 +38,7 @@ interface RecentActivityProps {
 }
 
 // ─── Component ──────────────────────────────────────────────────────────
-const RecentActivity: React.FC<RecentActivityProps> = ({
+const HistoryConversation: React.FC<HistoryConversationProps> = ({
   conversations,
   isLoading,
   onLoadConversation,
@@ -61,7 +61,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
     }
   };
 
-  // ── Render ──
+  // ── Render ─
   return (
     <div
       style={{
@@ -139,4 +139,4 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
   );
 };
 
-export default RecentActivity;
+export default HistoryConversation;

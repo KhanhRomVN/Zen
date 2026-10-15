@@ -9,13 +9,22 @@ import {
 /** Tên group mặc định cho skill không thuộc group nào. */
 export const DEFAULT_GROUP_NAME = "Others";
 
+export interface GroupExtra {
+  color?: string;
+  description?: string;
+}
+
 export interface UseSkillWorkspaceStateResult {
   state: SkillWorkspaceState;
   loading: boolean;
   setSkillEnabled: (slug: string, enabled: boolean) => void;
   toggleSkillEnabled: (slug: string) => void;
-  addGroup: (name: string, icon?: string) => void;
+  addGroup: (name: string, icon?: string, extra?: GroupExtra) => void;
   renameGroup: (oldName: string, newName: string) => void;
+  updateGroup: (
+    oldName: string,
+    next: { name: string; icon?: string; color?: string; description?: string },
+  ) => void;
   removeGroup: (
     name: string,
     options?: { deleteSlugs?: string[]; moveTo?: string },
@@ -89,7 +98,8 @@ export function useSkillWorkspaceState(): UseSkillWorkspaceStateResult {
     }));
   }, []);
 
-  const addGroup = useCallback((name: string, icon?: string) => {
+  const addGroup = useCallback(
+    (name: string, icon?: string, extra?: GroupExtra) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     setState((prev) => {
@@ -99,10 +109,50 @@ export function useSkillWorkspaceState(): UseSkillWorkspaceStateResult {
       if (exists) return prev;
       return {
         ...prev,
-        groups: [...prev.groups, { name: trimmed, slugs: [], icon }],
+        groups: [...prev.groups, { name: trimmed, slugs: [], icon, ...extra }],
       };
     });
-  }, []);
+  },
+  [],
+  );
+
+  const updateGroup = useCallback(
+    (
+      oldName: string,
+      next: { name: string; icon?: string; color?: string; description?: string },
+    ) => {
+      const trimmed = next.name.trim();
+      if (!trimmed) return;
+      setState((prev) => {
+        const oldKey = normalizeGroupName(oldName);
+        const newKey = normalizeGroupName(trimmed);
+        const dup = prev.groups.some(
+          (g) => normalizeGroupName(g.name) === newKey && oldKey !== newKey,
+        );
+        if (dup) return prev;
+
+        const groups = prev.groups.map((g) =>
+          normalizeGroupName(g.name) === oldKey
+            ? {
+                ...g,
+                name: trimmed,
+                icon: next.icon,
+                color: next.color,
+                description: next.description,
+              }
+            : g,
+        );
+
+        const collapsedGroups: Record<string, boolean> = {};
+        for (const [k, v] of Object.entries(prev.collapsedGroups)) {
+          collapsedGroups[normalizeGroupName(k) === oldKey ? newKey : k] = v;
+        }
+
+        return { ...prev, groups, collapsedGroups };
+      });
+    },
+    [],
+  );
 
   const renameGroup = useCallback((oldName: string, newName: string) => {
     const trimmed = newName.trim();
@@ -210,6 +260,7 @@ export function useSkillWorkspaceState(): UseSkillWorkspaceStateResult {
     toggleSkillEnabled,
     addGroup,
     renameGroup,
+    updateGroup,
     removeGroup,
     assignSkillToGroup,
     toggleGroupCollapsed,

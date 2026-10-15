@@ -9,7 +9,13 @@ const REQUEST_TIMEOUT_MS = 10000;
 export interface SkillWorkspaceState {
   toggles: Record<string, boolean>;
   /** `icon` là tên icon lucide (vd "Folder", "Star") — optional cho state cũ. */
-  groups: Array<{ name: string; slugs: string[]; icon?: string }>;
+  groups: Array<{
+    name: string;
+    slugs: string[];
+    icon?: string;
+    color?: string;
+    description?: string;
+  }>;
   collapsedGroups: Record<string, boolean>;
 }
 

@@ -47,7 +47,7 @@ import {
   MarkdownRenderer, // markdown
   QuestionRenderer, // question
   WarningRenderer, // warning (not tag)
-  SkillToolRenderer, // search_skill, list_skill, read_skill, install_skill
+  ReadSkillRenderer, // read_skill
   ReadMemoryRenderer, // read_memory
   UpdateMemoryRenderer, // update_memory
 } from "./renderers";
@@ -1140,17 +1140,12 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
     );
   }
 
-  // Handle SKILL marketplace tools: search_skill, list_skill, read_skill, install_skill
-  if (
-    toolType === "search_skill" ||
-    toolType === "list_skill" ||
-    toolType === "read_skill" ||
-    toolType === "install_skill"
-  ) {
+  // Handle SKILL marketplace tool: read_skill
+  if (toolType === "read_skill") {
     return (
       <>
         {toolGroup.map(({ action, index }) => (
-          <SkillToolRenderer
+          <ReadSkillRenderer
             key={index}
             action={action}
             actionIndex={index}
@@ -1417,7 +1412,10 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
 }) => {
   // Filter out invisible tools immediately
   const visibleItems = React.useMemo(() => {
-    return items.filter((item) => isVisibleTool(item.action.type));
+    if (!Array.isArray(items)) {
+      console.warn(`[DEBUG] TagRouter items is not array: ${typeof items}`);
+    }
+    return (items || []).filter((item) => isVisibleTool(item.action.type));
   }, [items, isVisibleTool]);
 
   // Memoize action handlers to prevent unnecessary re-renders

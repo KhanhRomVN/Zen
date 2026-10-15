@@ -58,6 +58,7 @@ import { SkillInstallHandler } from "../handlers/tool/SkillInstallHandler";
 import { SkillWorkspaceStateHandler } from "../handlers/tool/SkillWorkspaceStateHandler";
 import { RuleHandler } from "../handlers/tool/RuleHandler";
 import { MemoryHandler } from "../handlers/tool/MemoryHandler";
+import { AgentsMdHandler } from "../handlers/tool/AgentsMdHandler";
 import { WorkspaceZipHandler } from "../handlers/system/WorkspaceZipHandler";
 import { WorkbenchLayoutHandler } from "../handlers/system/WorkbenchLayoutHandler";
 
@@ -222,20 +223,17 @@ export class ChatController {
         case "createFolderAndOpen":
           await this.fileOpenHandler.handleCreateFolderAndOpen(message);
           break;
-        case "openLspFolder":
-          await this.fileOpenHandler.handleOpenFolder({
-            path: path.join(
-              os.homedir(),
-              ".khanhromvn-zen",
-              "lsp",
-              message.packageName,
-            ),
-          });
-          break;
         case "openSkillsFolder":
           await this.fileOpenHandler.handleOpenFolder({
             path: path.join(os.homedir(), ".khanhromvn-zen", "skills"),
           });
+          break;
+        case "openSkillFolder":
+          if (message.slug) {
+            await this.fileOpenHandler.handleOpenFolder({
+              path: this.skillInstallHandler.getRevealPath(message.slug),
+            });
+          }
           break;
         case "openTempImage":
           await this.previewHandler.handleOpenTempImage(message);
@@ -391,10 +389,7 @@ export class ChatController {
           break;
         }
         case "getMemoryFilePath": {
-          const workspaceFolderPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
-          const filePath = workspaceFolderPath
-            ? PathService.getInstance().getMemoryFilePath(workspaceFolderPath)
-            : "";
+          const filePath = PathService.getInstance().getMemoryFilePath();
           webviewView.webview.postMessage({
             command: "memoryFilePathResult",
             requestId: message.requestId,
@@ -404,6 +399,13 @@ export class ChatController {
         }
         case "saveMemory":
           await this.memoryHandler.handleSaveMemory(message, webviewView);
+          break;
+        case "getAgentsMdSnapshot":
+          webviewView.webview.postMessage({
+            command: "agentsMdSnapshotResult",
+            requestId: message.requestId,
+            content: AgentsMdHandler.getAgentsMdSnapshot(),
+          });
           break;
         case "openFileDiff":
           await this.diffViewHandler.handleFileDiff(message);
@@ -475,6 +477,7 @@ export class ChatController {
         case "listInstalledSkills":
         case "installSkill":
         case "uninstallSkill":
+        case "readSkillContent":
           await this.skillInstallHandler.handleSkillInstall(
             message,
             webviewView,

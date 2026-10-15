@@ -6,20 +6,18 @@
  * ------------------------------------------------------------------
  */
 
-import React from 'react';
-
 export function MCPPanel() {
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100%',
-        padding: '32px 16px',
-        textAlign: 'center',
-        color: 'var(--secondary-text)',
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100%",
+        padding: "32px 16px",
+        textAlign: "center",
+        color: "var(--secondary-text)",
       }}
     >
       <svg
@@ -32,7 +30,7 @@ export function MCPPanel() {
         strokeWidth="1"
         strokeLinecap="round"
         strokeLinejoin="round"
-        style={{ marginBottom: '16px', opacity: 0.3 }}
+        style={{ marginBottom: "16px", opacity: 0.3 }}
       >
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
         <path d="M12 8v4"></path>
@@ -40,15 +38,15 @@ export function MCPPanel() {
       </svg>
       <h3
         style={{
-          fontSize: '16px',
+          fontSize: "16px",
           fontWeight: 600,
-          color: 'var(--primary-text)',
-          marginBottom: '8px',
+          color: "var(--primary-text)",
+          marginBottom: "8px",
         }}
       >
         MCP Servers Marketplace
       </h3>
-      <p style={{ fontSize: '13px', opacity: 0.7, maxWidth: '300px' }}>
+      <p style={{ fontSize: "13px", opacity: 0.7, maxWidth: "300px" }}>
         Browse and configure Model Context Protocol servers. Coming soon!
       </p>
     </div>

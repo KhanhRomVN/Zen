@@ -51,7 +51,6 @@ import { ChatSession } from "./types/chat";
 import ChatHeader from "./components/ChatHeader";
 import ChatBody from "./components/ChatBody";
 import ChatFooter from "./components/ChatFooter";
-import ChatSidebarLayout from "./components/ChatSidebarLayout";
 import { useConversationInsights } from "./hooks/messages/useConversationInsights";
 
 interface ChatPanelProps {
@@ -204,8 +203,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return !!(pc as any)?.anti_system_prompt_injection;
   }, [currentModel?.providerId, providers]);
 
-  const { commitMessageLanguage, promptLengthMode, systemPromptMode } =
-    useSettings();
+  const {
+    commitMessageLanguage,
+    promptLengthMode,
+    systemPromptMode,
+    requestCooldownEnabled,
+  } = useSettings();
 
   // --- UI State Management ---
   const {
@@ -309,6 +312,24 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     toggleToolFormat: handleToolFormatToggle,
   } = useToolFormatSettings(currentModel?.providerId, currentModel?.id);
 
+  const [lastResponseEndTime, setLastResponseEndTime] = React.useState<
+    number | null
+  >(null);
+  const handleTurnComplete = React.useCallback(() => {
+    const ts = Date.now();
+    setLastResponseEndTime(ts);
+  }, [currentProviderCooldownMs]);
+
+  const [cooldownWaitStartTime, setCooldownWaitStartTime] = React.useState<
+    number | null
+  >(null);
+
+  // Reset lastResponseEndTime khi bắt đầu một conversation mới
+  React.useEffect(() => {
+    setLastResponseEndTime(null);
+  }, [currentChat?.sessionId]);
+  // ─────────────────────────────────────────────────────────────────────
+
   const {
     messages,
     setMessages,
@@ -369,32 +390,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     onConversationTitleChange: (title) => {
       setConversationTitle(title);
     },
+    onTurnComplete: handleTurnComplete,
+    requestCooldownMs: requestCooldownEnabled ? currentProviderCooldownMs : 0,
+    onCooldownWait: setCooldownWaitStartTime,
   });
 
   // Track messages and streaming state - kept for potential future use, but removed heavy logging
   // (Previously had debug useEffect here - removed for performance)
-
-  // ── Request Cooldown tracking ────────────────────────────────────────
-  // Track thời điểm nhận xong response cuối (isStreaming: true → false).
-  // Dùng để tính cooldown timer trong MessageInput toolbar.
-  const [lastResponseEndTime, setLastResponseEndTime] = React.useState<
-    number | null
-  >(null);
-  const prevIsStreamingRef = React.useRef(false);
-  React.useEffect(() => {
-    const wasStreaming = prevIsStreamingRef.current;
-    prevIsStreamingRef.current = isStreaming;
-    if (wasStreaming && !isStreaming) {
-      // Stream vừa kết thúc → ghi lại timestamp
-      setLastResponseEndTime(Date.now());
-    }
-  }, [isStreaming]);
-
-  // Reset lastResponseEndTime khi bắt đầu một conversation mới
-  React.useEffect(() => {
-    setLastResponseEndTime(null);
-  }, [currentChat?.sessionId]);
-  // ─────────────────────────────────────────────────────────────────────
 
   // Enrich currentAccount với usage + period stats sau mỗi lần stream xong
   // và khi account.id đổi. Dùng isStreaming làm trigger — mỗi khi stream
@@ -1251,150 +1253,151 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // --- Render ---
   return (
-    <ChatSidebarLayout
-      currentConversationId={currentConversationId}
-      onLoadConversation={onLoadConversation}
-      onCurrentDeleted={onBack}
+    <div
+      className="chat-panel"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        backgroundColor: "var(--secondary-bg)",
+        color: "var(--vscode-editor-foreground)",
+      }}
     >
-      <div
-        className="chat-panel"
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          backgroundColor: "var(--secondary-bg)",
-          color: "var(--vscode-editor-foreground)",
-        }}
-      >
-        {/* ─── ChatHeader ─── */}
-        <ChatHeader
-          displayedModel={displayedModel}
-          currentAccount={currentAccount}
-          setCurrentAccount={setCurrentAccount}
-          messages={messages}
-          conversationTitle={conversationTitle}
-          currentConversationId={currentConversationId}
-          currentTaskName={currentTaskName}
-          promptLengthMode={promptLengthMode}
-          systemPromptMode={systemPromptMode}
-          contextUsage={contextUsage}
-          chatTokens={chatStats.tokens}
-          chatRequests={chatStats.requests}
-          isSearchOpen={isSearchOpen}
-          setIsSearchOpen={setIsSearchOpen}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onCopyAsMarkdown={handleCopyAsMarkdown}
-          onCopyAsJson={handleCopyAsJson}
-          onDeleteConversation={handleDeleteConversation}
-          onExportAsJson={handleExportAsJson}
-        />
+      {/* ─── ChatHeader ─── */}
+      <ChatHeader
+        displayedModel={displayedModel}
+        currentAccount={currentAccount}
+        setCurrentAccount={setCurrentAccount}
+        messages={messages}
+        conversationTitle={conversationTitle}
+        currentConversationId={currentConversationId}
+        currentTaskName={currentTaskName}
+        promptLengthMode={promptLengthMode}
+        systemPromptMode={systemPromptMode}
+        contextUsage={contextUsage}
+        chatTokens={chatStats.tokens}
+        chatRequests={chatStats.requests}
+        isSearchOpen={isSearchOpen}
+        setIsSearchOpen={setIsSearchOpen}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onCopyAsMarkdown={handleCopyAsMarkdown}
+        onCopyAsJson={handleCopyAsJson}
+        onDeleteConversation={handleDeleteConversation}
+        onExportAsJson={handleExportAsJson}
+      />
 
-        {/* ─── ChatBody ─── */}
-        <ChatBody
-          messages={parsedMessages}
-          isProcessing={isProcessing}
-          isContinuing={isContinuing}
-          onSendToolRequest={memoizedHandleToolRequest}
-          onSendMessage={memoizedWrappedSendMessage}
-          executionState={executionState}
-          toolOutputs={toolOutputs}
-          terminalStatus={terminalStatus}
-          firstRequestMessageId={firstRequestMessage?.id}
-          onLoadConversation={onLoadConversation}
-          conversationId={currentConversationId}
-          onToolAction={handleToolAction}
-          onSelectOption={handleSelectOption}
-          isRestored={isRestored}
-          onContinue={() => setIsRestored(false)}
-          hasInitialMessage={!!initialMessageData}
-          onRevertConversation={handleRevertConversation}
-          onAutoScrollPausedChange={setAutoScrollPaused}
-          scrollToBottomRef={scrollToBottomRef}
-          singleLineReviewActions={singleLineReviewActions}
-          onConfirmSingleLineAction={confirmSingleLineAction}
-          onRejectSingleLineAction={rejectSingleLineAction}
-          isSearchOpen={isSearchOpen}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          onCloseSearch={() => {
-            setIsSearchOpen(false);
-            setSearchQuery("");
-          }}
-          onGitConfirm={handleGitConfirm}
-          onGitCancel={handleGitCancel}
-          gitStatusItems={gitStatus?.items || []}
-          gitStatusBranch={gitStatus?.branch || ""}
-          isGitProcessing={gitCommitLoading}
-          isGitStatusVisible={showGitStatusBlock}
-          onBackToHome={handleBackToHome}
-          isLoadingConversation={isLoadingConversation}
-          canRegenerate={canRegenerate && !isViewOnly}
-          isViewOnly={isViewOnly}
-          toolFormat={currentToolFormat}
-          dangerousCommands={dangerousCommands}
-          onProceedDangerousCommand={proceedDangerousCommand}
-          onCancelDangerousCommand={cancelDangerousCommand}
-        />
-        {/* ─── ChatFooter ─── */}
-        <ChatFooter
-          message={message}
-          setMessage={setMessage}
-          isHistoryMode={isHistoryMode}
-          uploadedFiles={uploadedFiles}
-          attachedItems={attachedItems}
-          textareaRef={textareaRef}
-          handleTextareaChange={handleTextareaChange}
-          handleKeyDown={handleKeyDown}
-          handlePaste={handlePaste}
-          handleDragOver={handleDragOver}
-          handleDrop={handleDrop}
-          handleFileSelect={handleFileSelect}
-          fileInputRef={fileInputRef}
-          onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
-          showChangesDropdown={showChangesDropdown}
-          setShowChangesDropdown={setShowChangesDropdown}
-          messages={messages}
-          handleSend={handleSend}
-          hasProjectContext={!!projectContext}
-          onOpenProjectContext={() => setShowProjectContextModal(true)}
-          folderPath={currentChat?.folderPath || null}
-          isConversationStarted={messages.length > 0 || !!initialMessageData}
-          currentModel={enrichedModel ?? currentModel}
-          setCurrentModel={setCurrentModel}
-          currentAccount={currentAccount}
-          setCurrentAccount={setCurrentAccount}
-          isProcessing={isProcessing || executionState.status === "running"}
-          isStreaming={isStreaming}
-          onStopGeneration={handleStopGeneration}
-          showBrowserWarning={showBrowserWarning}
-          isLaunchingBrowser={isLaunchingBrowser}
-          onLaunchBrowserSession={launchBrowserSession}
-          onGitPullRequest={handleGitPullRequest}
-          gitLoading={gitLoading}
-          isGitStatusVisible={showGitStatusBlock}
-          removeAttachedItem={handleRemoveAttachedItem}
-          onOpenImage={handleOpenImage}
-          removeFile={removeFile}
-          externalFileInputRef={externalFileInputRef}
-          handleExternalFileInputChange={handleExternalFileInputChange}
-          handleFileInputChange={handleFileInputChange}
-          footerPaddingBottom={footerPaddingBottom}
-          gitStatus={gitStatus}
-          onOpenGitStatus={() => setShowGitStatusBlock(true)}
-          loadedConversationFileStats={loadedConversationFileStats}
-          onRevertConversation={handleRevertConversation}
-          autoScrollPaused={autoScrollPaused}
-          scrollToBottom={scrollToBottomRef.current || undefined}
-          onSelectRule={handleSelectRule}
-          isViewOnly={isViewOnly}
-          conversationToolFormat={conversationToolFormat}
-          onConversationToolFormatToggle={handleToolFormatToggle}
-          lastResponseEndTime={lastResponseEndTime}
-          requestCooldownMs={currentProviderCooldownMs}
-        />
-      </div>
-    </ChatSidebarLayout>
+      {/* ─── ChatBody ─── */}
+      <ChatBody
+        messages={parsedMessages}
+        isProcessing={isProcessing}
+        isContinuing={isContinuing}
+        onSendToolRequest={memoizedHandleToolRequest}
+        onSendMessage={memoizedWrappedSendMessage}
+        executionState={executionState}
+        toolOutputs={toolOutputs}
+        terminalStatus={terminalStatus}
+        firstRequestMessageId={firstRequestMessage?.id}
+        onLoadConversation={onLoadConversation}
+        conversationId={currentConversationId}
+        onToolAction={handleToolAction}
+        onSelectOption={handleSelectOption}
+        isRestored={isRestored}
+        onContinue={() => setIsRestored(false)}
+        hasInitialMessage={!!initialMessageData}
+        onRevertConversation={handleRevertConversation}
+        onAutoScrollPausedChange={setAutoScrollPaused}
+        scrollToBottomRef={scrollToBottomRef}
+        singleLineReviewActions={singleLineReviewActions}
+        onConfirmSingleLineAction={confirmSingleLineAction}
+        onRejectSingleLineAction={rejectSingleLineAction}
+        isSearchOpen={isSearchOpen}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        onCloseSearch={() => {
+          setIsSearchOpen(false);
+          setSearchQuery("");
+        }}
+        onGitConfirm={handleGitConfirm}
+        onGitCancel={handleGitCancel}
+        gitStatusItems={gitStatus?.items || []}
+        gitStatusBranch={gitStatus?.branch || ""}
+        isGitProcessing={gitCommitLoading}
+        isGitStatusVisible={showGitStatusBlock}
+        onBackToHome={handleBackToHome}
+        isLoadingConversation={isLoadingConversation}
+        canRegenerate={canRegenerate && !isViewOnly}
+        isViewOnly={isViewOnly}
+        toolFormat={currentToolFormat}
+        dangerousCommands={dangerousCommands}
+        onProceedDangerousCommand={proceedDangerousCommand}
+        onCancelDangerousCommand={cancelDangerousCommand}
+      />
+      {/* ─── ChatFooter ─── */}
+      <ChatFooter
+        message={message}
+        setMessage={setMessage}
+        isHistoryMode={isHistoryMode}
+        uploadedFiles={uploadedFiles}
+        attachedItems={attachedItems}
+        textareaRef={textareaRef}
+        handleTextareaChange={handleTextareaChange}
+        handleKeyDown={handleKeyDown}
+        handlePaste={handlePaste}
+        handleDragOver={handleDragOver}
+        handleDrop={handleDrop}
+        handleFileSelect={handleFileSelect}
+        fileInputRef={fileInputRef}
+        onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
+        showChangesDropdown={showChangesDropdown}
+        setShowChangesDropdown={setShowChangesDropdown}
+        messages={messages}
+        handleSend={handleSend}
+        hasProjectContext={!!projectContext}
+        onOpenProjectContext={() => setShowProjectContextModal(true)}
+        folderPath={currentChat?.folderPath || null}
+        isConversationStarted={messages.length > 0 || !!initialMessageData}
+        currentModel={enrichedModel ?? currentModel}
+        setCurrentModel={setCurrentModel}
+        currentAccount={currentAccount}
+        setCurrentAccount={setCurrentAccount}
+        isProcessing={isProcessing || executionState.status === "running"}
+        isStreaming={isStreaming}
+        onStopGeneration={handleStopGeneration}
+        showBrowserWarning={showBrowserWarning}
+        isLaunchingBrowser={isLaunchingBrowser}
+        onLaunchBrowserSession={launchBrowserSession}
+        onGitPullRequest={handleGitPullRequest}
+        gitLoading={gitLoading}
+        isGitStatusVisible={showGitStatusBlock}
+        removeAttachedItem={handleRemoveAttachedItem}
+        onOpenImage={handleOpenImage}
+        removeFile={removeFile}
+        externalFileInputRef={externalFileInputRef}
+        handleExternalFileInputChange={handleExternalFileInputChange}
+        handleFileInputChange={handleFileInputChange}
+        footerPaddingBottom={footerPaddingBottom}
+        gitStatus={gitStatus}
+        onOpenGitStatus={() => setShowGitStatusBlock(true)}
+        loadedConversationFileStats={loadedConversationFileStats}
+        onRevertConversation={handleRevertConversation}
+        autoScrollPaused={autoScrollPaused}
+        scrollToBottom={scrollToBottomRef.current || undefined}
+        onSelectRule={handleSelectRule}
+        onSelectSkills={(items) => {
+          attachedItems
+            .filter((i: any) => i.type === "skill")
+            .forEach((i: any) => handleRemoveAttachedItem(i.id));
+          items.forEach((item) => addAttachedItemWithCache(item));
+        }}
+        isViewOnly={isViewOnly}
+        conversationToolFormat={conversationToolFormat}
+        onConversationToolFormatToggle={handleToolFormatToggle}
+        lastResponseEndTime={lastResponseEndTime}
+        cooldownWaitStartTime={cooldownWaitStartTime}
+        requestCooldownMs={currentProviderCooldownMs}
+      />
+    </div>
   );
 };
 

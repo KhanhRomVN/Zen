@@ -9,7 +9,7 @@ Cấu trúc lưu trữ dữ liệu của Zen Extension.
 **Thư mục gốc:** `~/.khanhromvn-zen/`
 
 Zen Extension sử dụng:
-- **File System** — Project conversation history, custom LSP packages
+- **File System** — Project conversation history, global memory
 
 ---
 
@@ -25,6 +25,7 @@ Mỗi project có một folder riêng, hash MD5 từ workspace path (tính bởi
 
 ```
 ~/.khanhromvn-zen/
+├── memory.md                                   ← memory toàn cục, dùng chung mọi project
 ├── projects/
 │   └── {projectHash}/                          ← hash MD5 của workspace path
 │       └── {conversationId}/                   ← folder riêng cho mỗi conversation
@@ -33,12 +34,6 @@ Mỗi project có một folder riêng, hash MD5 từ workspace path (tính bởi
 │           │   └── ckpt_{ts}_{hex}.json
 │           └── replace_history/                ← lịch sử từng lần replace_in_file thành công
 │               └── {fileHash}_v{n}.json
-└── lsp/
-    ├── typescript-language-server/
-    ├── pyright/
-    ├── rust-analyzer/
-    ├── gopls/
-    └── ...
 ```
 
 > **Migration:** Các file `.json` cũ (nằm thẳng trong `{projectHash}/`) được tự động migrate sang cấu trúc mới khi mở History panel (`migrateAllConversationsInDir`) hoặc khi truy cập lazy từng conversation (`migrateConversationIfNeeded`). Backward-compatible hoàn toàn.
@@ -150,18 +145,17 @@ Mỗi project có một folder riêng, hash MD5 từ workspace path (tính bởi
 
 ---
 
-### Custom LSP Storage
+### Global Memory
 
-**Path:** `~/.khanhromvn-zen/lsp/{packageName}/`
+**Path:** `~/.khanhromvn-zen/memory.md` (tính bởi `PathService.getMemoryFilePath()`)
 
-Mỗi LSP package được cài đặt vào folder riêng:
+Một file Markdown duy nhất, dùng chung cho mọi project. Chỉ lưu thông tin tổng quát: sở thích người dùng, phong cách code, ưu tiên, điều thích/không thích, phong cách giao tiếp. Không lưu chi tiết riêng của một project cụ thể.
 
-- `~/.khanhromvn-zen/lsp/typescript-language-server/` — TypeScript/JavaScript LSP
-- `~/.khanhromvn-zen/lsp/pyright/` — Python LSP
-- `~/.khanhromvn-zen/lsp/rust-analyzer/` — Rust LSP
-- `~/.khanhromvn-zen/lsp/gopls/` — Go LSP
+- **Bật/tắt:** toggle `Memory` ở `PromptSettingsDropdown` (per-conversation) hoặc `Settings → Feature`. Trạng thái lưu ở localStorage key toàn cục `zen_memory_enabled`.
+- **Khi bật:** `PromptBuilder.buildMemorySection()` đọc nội dung file và nhúng vào cuối system prompt dưới heading `# Memory` (chỉ ở request đầu tiên của conversation).
+- **AI đọc/ghi:** qua tool `read_memory` / `update_memory`, xử lý bởi `MemoryHandler`.
+- **Người dùng chỉnh sửa:** `Settings → Feature → Memory` (autosave qua `saveMemory`).
 
-> **Lưu ý:** Khi `zen_use_custom_lsp = true`, extension tự động cài đặt LSP packages khi detect file type chưa có LSP.
 
 ---
 
@@ -196,14 +190,13 @@ User xem history
 
 ```bash
 chmod 700 ~/.khanhromvn-zen
-chmod 755 ~/.khanhromvn-zen/lsp
 chmod 755 ~/.khanhromvn-zen/projects
-```
+
 
 ### Backup
 
-```bash
-# Backup toàn bộ (bao gồm conversations + LSP packages)
+
+# Backup toàn bộ (bao gồm conversations)
 tar -czf zen-backup-$(date +%Y%m%d).tar.gz ~/.khanhromvn-zen/
 
 # Backup chỉ conversations

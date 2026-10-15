@@ -72,6 +72,8 @@ interface ChatFooterProps {
   scrollToBottom?: () => void;
   /** Gọi khi người dùng chọn (hoặc vừa tạo) 1 rule để gắn vào input. */
   onSelectRule?: (item: any) => void;
+  /** Gọi khi xác nhận chọn skill — truyền toàn bộ tập skill mới (thay thế tập cũ). */
+  onSelectSkills?: (items: any[]) => void;
   /** View-only: conversation không thể tiếp tục (provider supports_session_cleanup hoặc no-auth) */
   isViewOnly?: boolean;
   /** Tool format cho conversation này */
@@ -81,6 +83,8 @@ interface ChatFooterProps {
   lastResponseEndTime?: number | null;
   /** Thời gian cooldown (ms) lấy từ provider config. 0 = không dùng */
   requestCooldownMs?: number;
+  /** Mốc bắt đầu chờ cooldown trước request tool-result (ms). null = không chờ. Chỉ dùng cho viền progress. */
+  cooldownWaitStartTime?: number | null;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -134,11 +138,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   autoScrollPaused = false,
   scrollToBottom,
   onSelectRule,
+  onSelectSkills,
   isViewOnly = false,
   conversationToolFormat,
   onConversationToolFormatToggle,
   lastResponseEndTime,
   requestCooldownMs = 0,
+  cooldownWaitStartTime,
 }) => {
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
@@ -649,11 +655,13 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
             scrollToBottom={scrollToBottom}
             enableViewOnlyMode={true}
             onSelectRule={onSelectRule}
+            onSelectSkills={onSelectSkills}
             onRemoveAttachedItem={removeAttachedItem}
             conversationToolFormat={conversationToolFormat}
             onConversationToolFormatToggle={onConversationToolFormatToggle}
             lastResponseEndTime={lastResponseEndTime}
             requestCooldownMs={requestCooldownMs}
+            cooldownWaitStartTime={cooldownWaitStartTime}
           />
         </div>
       </div>
