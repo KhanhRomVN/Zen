@@ -211,6 +211,8 @@ export const useChatLLM = ({
   const [conversationToolOverrides, setConversationToolOverrides] = useState<
     Record<string, "auto">
   >({});
+  const unexecutedToolRetryCountRef = useRef<number>(0);
+  const sendMessageRef = useRef<any>(null);
 
   // Sync messages to ref
   useEffect(() => {
@@ -252,6 +254,7 @@ export const useChatLLM = ({
     setIsProcessingSync(false);
     dispatchStreaming({ type: "STOP_ALL" });
     setConversationToolOverrides({});
+    unexecutedToolRetryCountRef.current = 0;
   }, [setIsProcessingSync, dispatchStreaming]);
 
   /**
@@ -475,6 +478,7 @@ export const useChatLLM = ({
       // Increment user request counter
       if (!skipFirstRequestLogic) {
         userRequestCountRef.current += 1;
+        unexecutedToolRetryCountRef.current = 0;
       }
 
       // Build prompt using PromptBuilder
@@ -1245,6 +1249,41 @@ export const useChatLLM = ({
           return;
         }
 
+        // 🚨 DETECT UNEXECUTED / CORRUPTED TOOL CALL (DeepSeek JSON output format issue)
+        // Nếu phát hiện AI đã xuất cú pháp gọi tool nhưng không có action nào được thực thi
+        // (do format output bị lỗi, unescaped newlines/quotes khi sinh code lớn),
+        // hệ thống tự động gửi 1 request yêu cầu AI xác nhận/thực thi lại thay vì để user tự gõ "try again".
+        const unexecutedTools = parsed?.unexecutedToolCalls || [];
+        if (
+          !hasParsingError &&
+          unexecutedTools.length > 0 &&
+          (!parsed.actions || parsed.actions.length === 0)
+        ) {
+          const failedTool = unexecutedTools[0];
+          console.warn(
+            `[Zen][sendMessage] ⚠️ Detected unexecuted tool call "${failedTool.toolName}" due to JSON syntax/format error. Triggering auto-recovery feedback...`,
+          );
+
+          if (unexecutedToolRetryCountRef.current < 2) {
+            unexecutedToolRetryCountRef.current += 1;
+            setTimeout(() => {
+              const sendFn = sendMessageRef.current || sendMessage;
+              sendFn(
+                `[System] Tool execution incomplete: Your previous response contained a tool call for "${failedTool.toolName}" but it could not be executed because the JSON output format was corrupted/invalid (likely due to unescaped newlines or quotes in large code content). No file was written and no tool result was generated. Please verify the tool status and re-emit the tool call with valid JSON encoding (or split into smaller files/parts) so the system can execute it.`,
+                undefined,
+                undefined,
+                undefined,
+                true, // skipFirstRequestLogic = true
+              );
+            }, 600);
+            return;
+          } else {
+            unexecutedToolRetryCountRef.current = 0;
+          }
+        } else {
+          unexecutedToolRetryCountRef.current = 0;
+        }
+
         if (
           !hasParsingError &&
           parsed &&
@@ -1354,6 +1393,7 @@ export const useChatLLM = ({
       dispatchStreaming,
     ],
   );
+  sendMessageRef.current = sendMessage;
 
   /**
    * Handle tool action
