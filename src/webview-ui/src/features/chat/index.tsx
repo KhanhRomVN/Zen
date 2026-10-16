@@ -643,6 +643,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     messagesRef: messagesRef,
     isStoppedRef: isStoppedRef,
     toolFormat: currentToolFormat,
+    getMaxInputTokens: () => {
+      const m = currentModelRef.current;
+      if (!m?.providerId) return null;
+      const pc = providers.find(
+        (p: any) => p.provider_id?.toLowerCase() === m.providerId.toLowerCase(),
+      );
+      const mc = pc?.models?.find(
+        (x: any) => x.id?.toLowerCase() === m.id?.toLowerCase(),
+      );
+      return mc?.max_input_tokens ?? null;
+    },
     sendMessage: (
       content: string,
       files: any[] | undefined,

@@ -12,6 +12,7 @@ import { useSettings } from "../../../../context/SettingsContext";
 export { getPermissionDecision } from "../../utils/permissionUtils";
 import { getPermissionDecision } from "../../utils/permissionUtils";
 import { isQuestionFullyAnswered } from "../../utils/questionUtils";
+import { countTokens } from "@/utils/tokenizer";
 import {
   extensionService,
   messageDispatcher,
@@ -45,6 +46,8 @@ interface UseToolExecutionProps {
   isStoppedRef?: React.MutableRefObject<boolean>;
   /** Tool call format for this conversation */
   toolFormat?: "xml" | "json";
+  /** Trả về max_input_token của model hiện tại (null = không giới hạn) */
+  getMaxInputTokens?: () => number | null;
 }
 
 export const useToolExecution = ({
@@ -53,6 +56,7 @@ export const useToolExecution = ({
   messagesRef,
   isStoppedRef,
   toolFormat = "xml",
+  getMaxInputTokens,
 }: UseToolExecutionProps) => {
   const { permissionMode } = useSettings();
   const permissionModeRef = useRef<PermissionMode>(permissionMode);
@@ -124,6 +128,16 @@ export const useToolExecution = ({
   const commandStartTimes = useRef<Map<string, number>>(new Map());
   const earlyCommandResults = useRef<Map<string, any>>(new Map());
   const handleSendMessageRef = useRef(sendMessage);
+  const getMaxInputTokensRef = useRef(getMaxInputTokens);
+  getMaxInputTokensRef.current = getMaxInputTokens;
+
+  const limitGuard = (content: string): string => {
+    const max = getMaxInputTokensRef.current?.() ?? null;
+    if (max === null) return content;
+    const tokens = countTokens(content);
+    if (tokens <= max) return content;
+    return `[System] Your last action exceeded the allowed input token limit. Total allowed: ${max.toLocaleString()} tokens, but your request was ${tokens.toLocaleString()} tokens. The tool result was NOT sent. Retry with a smaller scope (e.g. read_file with start_line/end_line, a narrower grep, fewer files per turn).`;
+  };
 
   const [availableToolResultsBuffer, setAvailableToolResultsBuffer] = useState<{
     [messageId: string]: string[];
@@ -644,6 +658,8 @@ export const useToolExecution = ({
                   finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
                 }
 
+                finalContent = limitGuard(finalContent);
+
                 try {
                   const result = handleSendMessageRef.current(
                     finalContent,
@@ -824,6 +840,8 @@ export const useToolExecution = ({
                   : "Question";
               finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${msg.selectedOption}\n\n${finalContent}`;
             }
+
+            finalContent = limitGuard(finalContent);
 
             handleSendMessageRef.current(
               finalContent,
