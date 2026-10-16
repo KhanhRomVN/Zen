@@ -22,8 +22,8 @@ export type BlockedTimeRange = { startTime: number; endTime: number };
  * Khớp với deepseek.constant.ts — CHỈ dùng khi provider chưa load.
  */
 const DEFAULT_BLOCKED_RANGES: BlockedTimeRange[] = [
-  { startTime: 3, endTime: 4 },
-  { startTime: 19, endTime: 21 },
+  // { startTime: 3, endTime: 4 },
+  // { startTime: 19, endTime: 21 },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
