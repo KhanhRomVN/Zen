@@ -18,6 +18,7 @@ import TagRouter from "./TagRouter";
 import ResponseMetadataBar from "./ResponseMetadataBar";
 import ThinkingBlock from "./ThinkingBlock";
 
+
 // CONTEXT
 import { useSettings } from "@/context/SettingsContext";
 
@@ -141,6 +142,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
 
   // Tắt trong Settings → ẩn ResponseMetadataBar (kéo theo nút Retry/Revert)
   const { showMetadataBar } = useSettings();
+  const streamingThinking = isGenerating ? message.thinking || "" : "";
 
   //   Cache previousUserMessage lookup. Only recompute when the message
   // list length changes or the current message id changes (not on every render
@@ -287,6 +289,14 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
 
         let currentToolGroup: { action: any; index: number }[] = [];
         const blocks = parsedContent.contentBlocks || [];
+
+        if (isGenerating && blocks.length === 0 && streamingThinking) {
+          groups.push({
+            type: "thinking",
+            content: streamingThinking,
+            key: "thinking-streaming",
+          });
+        }
 
         const flushTools = () => {
           if (currentToolGroup.length > 0) {
@@ -566,7 +576,8 @@ const AIMessageBox = React.memo(
     if (prevProps.isGenerating || nextProps.isGenerating) {
       // Check if message content changed
       const contentChanged =
-        prevProps.message.content !== nextProps.message.content;
+        prevProps.message.content !== nextProps.message.content ||
+        prevProps.message.thinking !== nextProps.message.thinking;
 
       // Check if streaming state changed (started/stopped)
       const streamingStateChanged =

@@ -237,8 +237,6 @@ export class StreamingService {
                 // Send raw content to onRawContent for ThinkingBlock display (no parsing)
                 if (updateBatch.content) {
                   callbacks.onRawContent?.(updateBatch.content);
-
-                  // 🔧 Update streaming preview store (bypass React render cascade)
                   streamingPreviewStore.setContent(assistantMessage.content);
                 }
 

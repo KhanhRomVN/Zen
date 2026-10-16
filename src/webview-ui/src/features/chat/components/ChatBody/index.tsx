@@ -22,6 +22,7 @@ import React, { useRef, useEffect, useMemo } from "react";
 // ── Services & Contexts ──
 import { parseAIResponse } from "../../services/ResponseParser";
 import { useSettings } from "@/context/SettingsContext";
+import { useStreamingPreviewStore } from "../../stores/streamingPreviewStore";
 
 // ── Hooks ──
 import { useCollapseSections } from "../../hooks/ui/useCollapseSections";
@@ -87,6 +88,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   onCancelDangerousCommand,
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
+  const hasStreamingContent = useStreamingPreviewStore(
+    (state) => state.content.length > 0,
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -189,6 +193,10 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
       return false;
     }
 
+    if (hasStreamingContent) {
+      return false;
+    }
+
     if (visibleMessages.length === 0) {
       return true;
     }
@@ -237,7 +245,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     }
 
     return true;
-  }, [isProcessing, visibleMessages, parsedMessages]);
+  }, [isProcessing, visibleMessages, parsedMessages, hasStreamingContent]);
 
   return (
     <div

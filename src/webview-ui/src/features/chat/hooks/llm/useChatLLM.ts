@@ -912,7 +912,22 @@ export const useChatLLM = ({
               onContinuing: (isContinuing) => {
                 setIsContinuingSync(isContinuing);
               },
-              onRawContent: () => {},
+              onRawContent: (content) => {
+                setMessages((prev) => {
+                  const targetIndex = prev.findIndex(
+                    (m) => m.id === assistantMessageId,
+                  );
+                  if (targetIndex === -1) return prev;
+
+                  const currentMessage = prev[targetIndex];
+                  const newArray = prev.slice();
+                  newArray[targetIndex] = {
+                    ...currentMessage,
+                    thinking: (currentMessage.thinking || "") + content,
+                  };
+                  return newArray;
+                });
+              },
               onContent: (content) => {
                 // Anti-injection provider → strip conversation_title + parse tool markers.
                 // Path mapping luôn bật vì claude.ai web dùng sandbox path

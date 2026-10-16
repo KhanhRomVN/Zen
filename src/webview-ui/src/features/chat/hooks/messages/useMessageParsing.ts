@@ -8,7 +8,7 @@ import { parseAIResponse } from "../../services/ResponseParser";
 export const useMessageParsing = (
   messages: Message[],
   isStreaming: boolean,
-  toolFormat: 'xml' | 'json' = 'xml',
+  toolFormat: "xml" | "json" = "xml",
 ) => {
   // Parse cache — reuse results across renders, avoiding redundant re-parses
   // when only unrelated state changes (same messages array, same content).
