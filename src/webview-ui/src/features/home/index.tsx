@@ -36,12 +36,6 @@ import { useModelAccount } from "../../hooks/useModelAccount";
 
 // ── Services ──
 import { extensionService } from "../../services/ExtensionService";
-import {
-  isBlockedNow,
-  isDeepSeekProvider,
-  getBlockedRangeLabel,
-  getBlockedHoursDescription,
-} from "../../utils/timeBlock";
 
 // ── Types ──
 import UsageChart from "./components/UsageChart";
@@ -61,6 +55,9 @@ import {
   writeGlobalSnapshot,
 } from "./hooks/useStatsPeriod";
 import { useToolFormatSettings } from "../../hooks/useToolFormatSettings";
+import { useGitRepoScanner } from "../../hooks/useGitRepoScanner";
+import { useCommitPromptBuilder } from "../../hooks/useCommitPromptBuilder";
+import GitRepoPickerDrawer from "../../components/MessageInput/GitRepoPickerDrawer";
 
 // Memoized dashboard stats component to prevent re-render on typing
 const DashboardStats = React.memo(
@@ -226,6 +223,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
     setUseSkillEnabled,
     memoryEnabled: globalMemoryEnabled,
     setMemoryEnabled,
+    commitMessageLanguage,
   } = useSettings();
   const { isConnected, updateInfo } = useBackendConnection();
   const zenUpdateInfo = useZenUpdate();
@@ -288,6 +286,16 @@ const HomePanel: React.FC<HomePanelProps> = ({
     folderPath || null,
   );
 
+  // ── Git Repo Picker + Commit Prompt builder ──
+  const {
+    repos: gitRepos,
+    loading: gitReposLoading,
+    error: gitReposError,
+    scan: scanGitRepos,
+  } = useGitRepoScanner();
+  const [gitRepoPickerOpen, setGitRepoPickerOpen] = React.useState(false);
+  const [commitPromptBuilding, setCommitPromptBuilding] = React.useState(false);
+
   const { currentModel, setCurrentModel, currentAccount, setCurrentAccount } =
     useModelAccount(folderPath);
 
@@ -296,6 +304,48 @@ const HomePanel: React.FC<HomePanelProps> = ({
     toolFormat: conversationToolFormat,
     toggleToolFormat: toggleConversationToolFormat,
   } = useToolFormatSettings(currentModel?.providerId, currentModel?.id);
+
+  const { build: buildCommitPrompt } = useCommitPromptBuilder({
+    commitMessageLanguage,
+    toolFormat: conversationToolFormat,
+  });
+
+  const fillCommitPrompt = React.useCallback(
+    async (repoPath: string) => {
+      setCommitPromptBuilding(true);
+      try {
+        const prompt = await buildCommitPrompt(repoPath);
+        if (prompt) setMessage(prompt);
+      } finally {
+        setCommitPromptBuilding(false);
+      }
+    },
+    [buildCommitPrompt, setMessage],
+  );
+
+  const handleRequestGitRepoPicker = React.useCallback(async () => {
+    const list = await scanGitRepos();
+    if (list.length === 0) {
+      (window as any).vscodeApi?.postMessage({
+        command: "showInformation",
+        message: "Không tìm thấy git repo nào trong workspace (đã quét 4 cấp).",
+      });
+      return;
+    }
+    if (list.length === 1) {
+      fillCommitPrompt(list[0].relPath);
+      return;
+    }
+    setGitRepoPickerOpen(true);
+  }, [scanGitRepos, fillCommitPrompt]);
+
+  const handleSelectGitRepo = React.useCallback(
+    (repo: { relPath: string }) => {
+      setGitRepoPickerOpen(false);
+      fillCommitPrompt(repo.relPath);
+    },
+    [fillCommitPrompt],
+  );
 
   // NOTE: Claude/anti-injection detection được xử lý nội bộ trong MessageInput
   // (tự đọc providers config + currentModel). Home panel không cần biết.
@@ -372,29 +422,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
         uploadedFiles.length > 0 ||
         attachedItems.length > 0
       ) {
-        // ── Time-Block Check: Chặn DeepSeek trong giờ cấm ───────────────
-        if (isDeepSeekProvider(model?.providerId)) {
-          const providerConfig = providers.find(
-            (p: any) =>
-              p.provider_id?.toLowerCase() === model?.providerId?.toLowerCase(),
-          );
-          const ranges = providerConfig?.blocked_time_ranges ?? null;
-          if (isBlockedNow(ranges)) {
-            const rangeLabel = getBlockedRangeLabel(ranges);
-            const allRanges = getBlockedHoursDescription(ranges);
-            // Tạo fake chat session để hiển thị error message
-            onSendMessage(
-              `⛔ DeepSeek bị chặn trong khung giờ ${allRanges}. Hiện tại đang trong khung ${rangeLabel}. Vui lòng thử lại sau.`,
-              [],
-              model,
-              account,
-              {},
-            );
-            return;
-          }
-        }
-        // ────────────────────────────────────────────────────────────────
-
         // 🚀 FIX: Merge uploadedFiles and attachedItems like in chat panel
         onSendMessage(
           message,
@@ -803,6 +830,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
               setCurrentAccount={setCurrentAccount}
               isProcessing={false}
               isStreaming={false}
+              onRequestGitRepoPicker={handleRequestGitRepoPicker}
               conversationDiagnosticEnabled={conversationDiagnosticEnabled}
               conversationUseSkillEnabled={conversationUseSkillEnabled}
               conversationMemoryEnabled={conversationMemoryEnabled}
@@ -829,6 +857,15 @@ const HomePanel: React.FC<HomePanelProps> = ({
           </div>
         </div>
       </div>
+      <GitRepoPickerDrawer
+        isOpen={gitRepoPickerOpen}
+        onClose={() => setGitRepoPickerOpen(false)}
+        repos={gitRepos}
+        loading={gitReposLoading}
+        error={gitReposError}
+        onRefresh={scanGitRepos}
+        onSelect={handleSelectGitRepo}
+      />
     </div>
   );
 };

@@ -61,6 +61,7 @@ import { MemoryHandler } from "../handlers/tool/MemoryHandler";
 import { AgentsMdHandler } from "../handlers/tool/AgentsMdHandler";
 import { WorkspaceZipHandler } from "../handlers/system/WorkspaceZipHandler";
 import { WorkbenchLayoutHandler } from "../handlers/system/WorkbenchLayoutHandler";
+import { WorkspaceItemsHandler } from "../handlers/workspace/WorkspaceItemsHandler";
 
 // ── Managers ──
 import { CheckpointManager } from "../managers/CheckpointManager";
@@ -91,6 +92,7 @@ export class ChatController {
   private viewReplaceHistoryHandler: ViewReplaceHistoryHandler;
   private listFilesHandler: ListFilesHandler;
   private findFilesHandler: FindFilesHandler;
+  private workspaceItemsHandler: WorkspaceItemsHandler;
   private fileMiscHandler: FileMiscHandler;
   private gitStatusHandler: GitStatusHandler;
   private gitDiffHandler: GitDiffHandler;
@@ -147,6 +149,7 @@ export class ChatController {
     this.listFilesHandler = new ListFilesHandler();
     this.findFilesHandler = new FindFilesHandler();
     this.fileMiscHandler = new FileMiscHandler();
+    this.workspaceItemsHandler = new WorkspaceItemsHandler();
     this.gitStatusHandler = new GitStatusHandler();
     this.gitDiffHandler = new GitDiffHandler();
     this.runCommandHandler = new RunCommandHandler(this.terminalManager);
@@ -216,6 +219,15 @@ export class ChatController {
           break;
         case "gitCheckReady":
           await this.gitStatusHandler.handleCheckGitReady(message, webviewView);
+          break;
+        case "scanGitRepos":
+          await this.gitStatusHandler.handleScanGitRepos(message, webviewView);
+          break;
+        case "scanGitRepoDetail":
+          await this.gitStatusHandler.handleScanGitRepoDetail(
+            message,
+            webviewView,
+          );
           break;
         case "openPath":
           await this.fileOpenHandler.handleOpenFolder(message);
@@ -351,6 +363,10 @@ export class ChatController {
         case "findFiles":
           await this.findFilesHandler.handleFindFiles(message, webviewView);
           break;
+        case "getWorkspaceFiles":
+        case "getWorkspaceFolders":
+          await this.workspaceItemsHandler.handleGetWorkspaceItems(webviewView);
+          break;
 
         case "validateFuzzyMatch":
           await this.replaceInFileHandler.handleValidateFuzzyMatch(
@@ -460,6 +476,9 @@ export class ChatController {
           break;
         case "gitStatus":
           await this.gitStatusHandler.handleRunGitStatus(message, webviewView);
+          break;
+        case "gitRepoInfo":
+          await this.gitStatusHandler.handleGitRepoInfo(message, webviewView);
           break;
         case "gitDiff":
           await this.gitDiffHandler.handleGitDiff(message, webviewView);

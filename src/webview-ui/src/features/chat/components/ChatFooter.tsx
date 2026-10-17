@@ -53,7 +53,8 @@ interface ChatFooterProps {
   showBrowserWarning: boolean;
   isLaunchingBrowser: boolean;
   onLaunchBrowserSession: () => void;
-  onGitPullRequest: () => void;
+  onGitPullRequest?: () => void;
+  onRequestGitRepoPicker?: () => void;
   gitLoading: boolean;
   isGitStatusVisible?: boolean;
   removeAttachedItem: (id: string) => void;
@@ -67,11 +68,6 @@ interface ChatFooterProps {
   footerPaddingBottom: string;
   gitStatus?: { items?: any[]; branch?: string } | null;
   onOpenGitStatus?: () => void;
-  loadedConversationFileStats?: {
-    totalFiles: number;
-    totalAdditions: number;
-    totalDeletions: number;
-  } | null;
   onModelSwitch?: (
     newModel: any,
     newAccount: any,
@@ -91,8 +87,6 @@ interface ChatFooterProps {
   onSelectRule?: (item: any) => void;
   /** Gọi khi xác nhận chọn skill — truyền toàn bộ tập skill mới (thay thế tập cũ). */
   onSelectSkills?: (items: any[]) => void;
-  /** View-only: conversation không thể tiếp tục (provider supports_session_cleanup hoặc no-auth) */
-  isViewOnly?: boolean;
   /** Tool format cho conversation này */
   conversationToolFormat?: "xml" | "json";
   onConversationToolFormatToggle?: () => void;
@@ -133,6 +127,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   isLaunchingBrowser,
   onLaunchBrowserSession,
   onGitPullRequest,
+  onRequestGitRepoPicker,
   gitLoading,
   isGitStatusVisible,
   removeAttachedItem,
@@ -144,14 +139,12 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   footerPaddingBottom,
   gitStatus,
   onOpenGitStatus,
-  loadedConversationFileStats,
   onModelSwitch,
   onRevertConversation,
   autoScrollPaused = false,
   scrollToBottom,
   onSelectRule,
   onSelectSkills,
-  isViewOnly = false,
   conversationToolFormat,
   onConversationToolFormatToggle,
 }) => {
@@ -232,7 +225,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
 
         <div style={{ position: "relative" }}>
           <MessageInput
-            isViewOnly={isViewOnly}
             message={message}
             setMessage={setMessage}
             isHistoryMode={isHistoryMode}
@@ -266,17 +258,16 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
             isLaunchingBrowser={isLaunchingBrowser}
             onLaunchBrowserSession={onLaunchBrowserSession}
             onGitPullRequest={onGitPullRequest}
+            onRequestGitRepoPicker={onRequestGitRepoPicker}
             isGitLoading={gitLoading}
             isGitStatusVisible={isGitStatusVisible}
             gitStatus={gitStatus || undefined}
-            conversationFileStats={loadedConversationFileStats ?? undefined}
             onOpenGitStatus={onOpenGitStatus}
             onReviewClick={() => {}}
             onRevertConversation={onRevertConversation}
             onModelSwitch={onModelSwitch}
             autoScrollPaused={autoScrollPaused}
             scrollToBottom={scrollToBottom}
-            enableViewOnlyMode={true}
             onSelectRule={onSelectRule}
             onSelectSkills={onSelectSkills}
             onRemoveAttachedItem={removeAttachedItem}

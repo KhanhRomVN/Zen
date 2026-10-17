@@ -170,6 +170,7 @@ const App: React.FC = () => {
     setInitialMessageData(null);
   }, []);
 
+
   return (
     <ThemeProvider>
       <SettingsProvider>

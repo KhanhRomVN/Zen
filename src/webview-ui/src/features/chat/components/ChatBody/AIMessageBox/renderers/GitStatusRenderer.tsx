@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 // CONSTANTS
 import { TOOL_ACTION_TYPES, getToolLabel } from "@/features/chat/constants/constants";
@@ -9,9 +9,11 @@ import { GitStatusItem } from "@/features/chat/types/tool-types";
 
 // UTILS
 import { parseGitStatusOutput } from "@/features/chat/utils/gitUtils";
+import { getActiveGitRepo } from "@/features/chat/utils/active-git-repo";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
+import { RepoBranchLine } from "./RepoBranchLine";
 import { GitStatusBlock } from "../blocks/git_status/GitStatusBlock";
 
 // STYLES
@@ -62,11 +64,32 @@ export const GitStatusRenderer: React.FC<GitStatusRendererProps> = ({
   branch,
 }) => {
   const actionId = `${messageId}-action-${actionIndex}`;
+  const repo = useMemo(() => getActiveGitRepo(), []);
+  const [repoInfo, setRepoInfo] = useState({ folderName: "", branch: "" });
 
-  // If not visible, don't render anything
-  if (!isVisible) {
-    return null;
-  }
+  useEffect(() => {
+    const requestId = `git-status-repo-info-${actionId}`;
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (
+        data?.command === "gitRepoInfoResult" &&
+        data.requestId === requestId
+      ) {
+        setRepoInfo({
+          folderName: data.folderName || "",
+          branch: data.branch || "",
+        });
+      }
+    };
+    window.addEventListener("message", onMessage);
+    (window as any).vscodeApi?.postMessage({
+      command: "gitRepoInfo",
+      requestId,
+      repoPath: repo?.path || undefined,
+      hintPaths: [],
+    });
+    return () => window.removeEventListener("message", onMessage);
+  }, [actionId, repo?.path]);
 
   const hasOutput = toolOutputs && toolOutputs[actionId];
 
@@ -123,7 +146,7 @@ export const GitStatusRenderer: React.FC<GitStatusRendererProps> = ({
         0,
       );
       return {
-        label: `${getToolLabel("git_status")}${branch ? ` (${branch})` : ""}`,
+        label: getToolLabel("git_status"),
         stats: `${effectiveItems.length} changes +${totalAdded} -${totalDeleted}`,
         totalAdded,
         totalDeleted,
@@ -147,6 +170,10 @@ export const GitStatusRenderer: React.FC<GitStatusRendererProps> = ({
       onCancel();
     }
   };
+
+  if (!isVisible) {
+    return null;
+  }
 
   return (
     <div
@@ -218,8 +245,15 @@ export const GitStatusRenderer: React.FC<GitStatusRendererProps> = ({
         isPartial={false}
       />
 
+      <RepoBranchLine
+        repoLabel={repoInfo.folderName || repo?.path || "…"}
+        branchLabel={repoInfo.branch || repo?.branch || branch || "…"}
+        title={repo?.path}
+        gap={6}
+      />
+
       {hasOutput && (
-        <div style={{ padding: "0px 12px 12px 0" }}>
+        <div>
           <GitStatusBlock
             statusItems={effectiveItems}
             onConfirm={handleConfirm}

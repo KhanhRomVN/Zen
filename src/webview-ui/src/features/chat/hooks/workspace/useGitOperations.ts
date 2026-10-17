@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { Message } from "../../types/message";
 import { parseGitStatusOutput } from "../../utils/gitUtils";
 import { getCommitMessagePrompt } from "../../prompts/commit-message";
+import { setActiveGitRepo } from "../../utils/active-git-repo";
 
 interface UseGitOperationsProps {
   currentModel: any;
@@ -57,6 +58,8 @@ export const useGitOperations = ({
   const [gitCommitMessage, setGitCommitMessage] = useState<string | null>(null);
   const [gitCommitLoading, setGitCommitLoading] = useState(false);
   const [gitCommitInput, setGitCommitInput] = useState<string>("");
+  // Repo đã chọn cho flow Generate Commit Message (relative tới workspace root).
+  const [activeRepoPath, setActiveRepoPath] = useState<string | null>(null);
 
   const enrichedModel = useMemo(() => {
     if (!currentModel) return null;
@@ -71,7 +74,7 @@ export const useGitOperations = ({
     return { ...currentModel, ...modelData };
   }, [currentModel, providers]);
 
-  const handleGitPullRequest = useCallback(async () => {
+  const handleGitPullRequest = useCallback(async (repoPath?: string) => {
     if (gitLoading) {
       return;
     }
@@ -79,6 +82,7 @@ export const useGitOperations = ({
     setGitError(null);
     setShowGitStatusBlock(false);
     setGitCommitMessage(null);
+    setActiveRepoPath(repoPath ?? null);
     try {
       const vscodeApi = (window as any).vscodeApi;
       if (!vscodeApi) {
@@ -127,6 +131,8 @@ export const useGitOperations = ({
       vscodeApi.postMessage({
         command: "gitStatus",
         requestId,
+        repoPath: repoPath ?? undefined,
+        prefixPaths: true,
       });
 
       const result = await promise;
@@ -178,7 +184,14 @@ export const useGitOperations = ({
       const itemsWithStats =
         items.length > 0
           ? items.map((item) => {
-              const stats = diffStats[item.path];
+              const repoPrefix = (repoPath ?? "")
+                .replace(/\\/g, "/")
+                .replace(/^\.\/?|\/$/g, "");
+              const stats =
+                diffStats[item.path] ??
+                (repoPrefix && item.path.startsWith(`${repoPrefix}/`)
+                  ? diffStats[item.path.slice(repoPrefix.length + 1)]
+                  : undefined);
               if (stats) {
                 return { ...item, added: stats.added, deleted: stats.deleted };
               }
@@ -186,6 +199,7 @@ export const useGitOperations = ({
             })
           : [];
 
+      setActiveGitRepo({ path: repoPath ?? "", branch });
       setGitStatus({ items: itemsWithStats, raw: output, diffStats, branch });
       setShowGitStatusBlock(true);
 
@@ -229,6 +243,102 @@ ${statusMessage}
       setGitLoading(false);
     }
   }, [gitLoading, setMessages, setToolOutputs]);
+
+  /**
+   * Dùng cho GitRepoPickerDrawer: chọn repo xong → gọi git status theo
+   * repoPath → build prompt từ commit-message.ts → trả về string.
+   * Caller tự setMessage(prompt) — KHÔNG tự gửi cho LLM.
+   * Trả về null nếu có lỗi hoặc repo không có thay đổi.
+   */
+  const handleBuildCommitPrompt = useCallback(
+    async (repoPath: string): Promise<string | null> => {
+      setGitCommitLoading(true);
+      setActiveRepoPath(repoPath);
+      setGitError(null);
+
+      const vscodeApi = (window as any).vscodeApi;
+      if (!vscodeApi) {
+        setGitCommitLoading(false);
+        setGitError("Không thể kết nối với VSCode API");
+        return null;
+      }
+
+      try {
+        const requestId = `git-status-${Date.now()}`;
+        const promise = new Promise<{
+          output: string;
+          error?: string;
+          branch?: string;
+        }>((resolve) => {
+          let timeoutId: ReturnType<typeof setTimeout> | null = null;
+          const handler = (event: MessageEvent) => {
+            const msg = event.data;
+            if (
+              msg.command === "gitStatusResult" &&
+              msg.requestId === requestId
+            ) {
+              if (timeoutId) clearTimeout(timeoutId);
+              window.removeEventListener("message", handler);
+              resolve({
+                output: msg.output,
+                error: msg.error,
+                branch: msg.branch,
+              });
+            }
+          };
+          window.addEventListener("message", handler);
+          timeoutId = setTimeout(() => {
+            window.removeEventListener("message", handler);
+            resolve({ output: "", error: "Timeout" });
+          }, 10000);
+        });
+
+        vscodeApi.postMessage({
+          command: "gitStatus",
+          requestId,
+          repoPath,
+          prefixPaths: true,
+        });
+
+        const result = await promise;
+        if (result.error) {
+          setGitCommitLoading(false);
+          setGitError(result.error);
+          return null;
+        }
+
+        const output = (result.output || "").trim();
+        if (!output) {
+          setGitCommitLoading(false);
+          vscodeApi.postMessage({
+            command: "showInformation",
+            message: `Repo "${repoPath}" không có thay đổi nào để tạo commit message.`,
+          });
+          return null;
+        }
+
+        const commitLang = commitMessageLanguage || "vi";
+        const formattedPrompt = getCommitMessagePrompt(
+          commitLang,
+          output,
+          undefined,
+          toolFormat,
+        );
+        const prompt = `[COMMIT_MESSAGE_REQUEST]\n${formattedPrompt}`;
+
+        setActiveGitRepo({ path: repoPath, branch: result.branch || "" });
+        setGitCommitLoading(false);
+        return prompt;
+      } catch (err) {
+        setGitCommitLoading(false);
+        setGitError(
+          err instanceof Error ? err.message : "Failed to build commit prompt",
+        );
+        return null;
+      }
+    },
+    [commitMessageLanguage, toolFormat],
+  );
 
   const handleGitConfirm = useCallback(
     async (items?: any[]) => {
@@ -274,19 +384,10 @@ ${statusMessage}
       );
       const prompt = `[COMMIT_MESSAGE_REQUEST]\n${formattedPrompt}`;
 
+      setShowGitStatusBlock(false);
       try {
-        await wrappedSendMessage(
-          prompt,
-          undefined,
-          modelToUse,
-          accountToUse,
-          true,
-          undefined,
-          true,
-        );
-
+        await wrappedSendMessage(prompt, undefined, modelToUse, accountToUse);
         setGitCommitLoading(false);
-        setShowGitStatusBlock(false);
       } catch (err) {
         setGitCommitLoading(false);
         setGitError(
@@ -418,6 +519,7 @@ Yêu cầu:
         command: "gitCommitAndPush",
         requestId,
         message: message.trim(),
+        repoPath: activeRepoPath ?? undefined,
       });
 
       const result = await promise;
@@ -463,12 +565,14 @@ Yêu cầu:
     gitCommitMessage,
     gitCommitLoading,
     gitCommitInput,
+    activeRepoPath,
     setGitCommitInput,
     setShowGitStatusBlock,
     setGitError,
     setGitCommitMessage,
     enrichedModel,
     handleGitPullRequest,
+    handleBuildCommitPrompt,
     handleGitConfirm,
     handleGitCancel,
     handleGitRetry,

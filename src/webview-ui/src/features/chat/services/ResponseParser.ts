@@ -24,12 +24,6 @@ import { parseUpdateMemory } from "./parsers/UpdateMemoryParser";
 import { findClosingTagPosition } from "../utils/TagClosingFinder";
 import { TagType } from "../types/tag-types";
 
-export interface UnexecutedToolCall {
-  toolName: string;
-  rawContent: string;
-  errorReason: string;
-}
-
 export interface ParsedResponse {
   followupQuestion: string | null;
   followupOptions: string[] | null;
@@ -39,7 +33,6 @@ export interface ParsedResponse {
   displayText: string;
   question: ContentBlock | null;
   onlyThinkingDetected?: boolean;
-  unexecutedToolCalls?: UnexecutedToolCall[];
 }
 
 export interface ToolAction {
@@ -112,101 +105,6 @@ const jsonToolToAction = (
 };
 
 /**
- * Cố gắng sửa lỗi chuỗi JSON tool call khi LLM sinh chuỗi code lớn bị lỗi format
- * (chứa raw newlines trong string, unescaped quotes, escape regex bị hỏng, v.v.)
- */
-const tryRepairAndParseJsonTool = (
-  raw: string,
-): { parsed: any | null; detectedToolName: string | null } => {
-  const toolNameMatch = raw.match(/"tool"\s*:\s*"([a-zA-Z0-9_-]+)"/);
-  const detectedToolName = toolNameMatch ? toolNameMatch[1] : null;
-
-  // 1. Thử parse trực tiếp
-  try {
-    const direct = JSON.parse(raw);
-    return { parsed: direct, detectedToolName: direct?.tool || detectedToolName };
-  } catch {}
-
-  // 2. Thử sửa raw newlines/tabs bên trong string literal của JSON
-  try {
-    let inStr = false;
-    let esc = false;
-    let repaired = '';
-    for (let i = 0; i < raw.length; i++) {
-      const ch = raw[i];
-      if (esc) {
-        repaired += ch;
-        esc = false;
-        continue;
-      }
-      if (ch === '\\') {
-        repaired += ch;
-        esc = true;
-        continue;
-      }
-      if (ch === '"') {
-        inStr = !inStr;
-        repaired += ch;
-        continue;
-      }
-      if (inStr) {
-        if (ch === '\n') {
-          repaired += '\\n';
-          continue;
-        }
-        if (ch === '\r') {
-          continue;
-        }
-        if (ch === '\t') {
-          repaired += '\\t';
-          continue;
-        }
-      }
-      repaired += ch;
-    }
-    const fixed = JSON.parse(repaired);
-    return { parsed: fixed, detectedToolName: fixed?.tool || detectedToolName };
-  } catch {}
-
-  // 3. Fallback trích xuất regex mềm cho write_to_file / replace_in_file
-  if (detectedToolName === 'write_to_file' || detectedToolName === 'replace_in_file') {
-    try {
-      const pathMatch = raw.match(/"file_path"\s*:\s*"([^"\r\n]+)"/);
-      const filePath = pathMatch ? pathMatch[1] : '';
-
-      const contentKeyMatch = raw.match(/"content"\s*:\s*"/);
-      if (contentKeyMatch && contentKeyMatch.index !== undefined && filePath) {
-        const start = contentKeyMatch.index + contentKeyMatch[0].length;
-        let end = raw.lastIndexOf('"}');
-        if (end === -1 || end <= start) {
-          end = raw.lastIndexOf('}');
-        }
-        if (end > start) {
-          let content = raw.slice(start, end);
-          content = content
-            .replace(/\\n/g, '\n')
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, '\\');
-
-          return {
-            parsed: {
-              tool: detectedToolName,
-              params: {
-                file_path: filePath,
-                content,
-              },
-            },
-            detectedToolName,
-          };
-        }
-      }
-    } catch {}
-  }
-
-  return { parsed: null, detectedToolName };
-};
-
-/**
  * JSON format parser: scans response for ```json {...} ``` fenced blocks
  * that match the tool call schema { "tool": "...", "params": {...} }.
  * Text between blocks is treated as markdown.
@@ -251,19 +149,6 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
         return { openStart: openIdx, bodyStart, bodyEnd: i, fenceEnd: i + 3 };
       }
     }
-
-    // Fallback: Nếu inString bị kẹt do unescaped quotes trong code lớn,
-    // tìm dấu ``` ở đầu dòng hoặc cuối chuỗi sau bodyStart
-    const fallbackClose = scanStr.indexOf('\n```', bodyStart);
-    if (fallbackClose !== -1) {
-      return {
-        openStart: openIdx,
-        bodyStart,
-        bodyEnd: fallbackClose,
-        fenceEnd: fallbackClose + 4,
-      };
-    }
-
     return null;
   };
 
@@ -311,19 +196,11 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
     const rawJson = scanStr.slice(fence.openStart, fence.fenceEnd);
     const jsonBody = scanStr.slice(fence.bodyStart, fence.bodyEnd).trim();
 
-    // Try to parse as tool call with smart repair
-    const { parsed, detectedToolName } = tryRepairAndParseJsonTool(jsonBody);
-
-    if (!parsed) {
-      // Nếu có tên tool nhưng parse hỏng -> ghi nhận unexecutedToolCall
-      if (detectedToolName) {
-        if (!result.unexecutedToolCalls) result.unexecutedToolCalls = [];
-        result.unexecutedToolCalls.push({
-          toolName: detectedToolName,
-          rawContent: jsonBody,
-          errorReason: 'JSON syntax formatting error in large content',
-        });
-      }
+    // Try to parse as tool call
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(jsonBody);
+    } catch {
       // Not valid JSON — treat the whole fence as a code block
       result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
       lastIndex = fence.fenceEnd;
@@ -404,14 +281,6 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
       typeof parsed?.params !== 'object' ||
       parsed.params === null
     ) {
-      if (detectedToolName) {
-        if (!result.unexecutedToolCalls) result.unexecutedToolCalls = [];
-        result.unexecutedToolCalls.push({
-          toolName: detectedToolName,
-          rawContent: jsonBody,
-          errorReason: 'Missing valid params object in tool call',
-        });
-      }
       // Generic JSON code block
       result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
       lastIndex = fence.fenceEnd;
@@ -420,14 +289,6 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
 
     const action = jsonToolToAction(parsed.tool, parsed.params, rawJson);
     if (!action) {
-      if (parsed.tool) {
-        if (!result.unexecutedToolCalls) result.unexecutedToolCalls = [];
-        result.unexecutedToolCalls.push({
-          toolName: parsed.tool,
-          rawContent: jsonBody,
-          errorReason: `Unknown or unmapped tool: ${parsed.tool}`,
-        });
-      }
       // Unknown tool — show as code block
       result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
       lastIndex = fence.fenceEnd;
@@ -489,7 +350,6 @@ export const parseAIResponse = (content: string, toolFormat: 'xml' | 'json' = 'x
     contentBlocks: [],
     displayText: "",
     question: null,
-    unexecutedToolCalls: [],
   };
 
   // ─── JSON format path ────────────────────────────────────────────────────

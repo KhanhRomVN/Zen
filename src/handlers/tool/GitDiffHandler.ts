@@ -41,8 +41,23 @@ export class GitDiffHandler {
       return;
     }
 
-    const cwd = workspaceFolder.uri.fsPath;
-    const escapedPath = filePath.replace(/"/g, '\\"');
+    const workspaceRoot = workspaceFolder.uri.fsPath;
+    const absFile = path.isAbsolute(filePath)
+      ? filePath
+      : path.join(workspaceRoot, filePath);
+    let cwd = workspaceRoot;
+    let dir = path.dirname(absFile);
+    while (dir.startsWith(workspaceRoot)) {
+      if (fs.existsSync(path.join(dir, ".git"))) {
+        cwd = dir;
+        break;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    const gitPath = path.relative(cwd, absFile);
+    const escapedPath = gitPath.replace(/"/g, '\\"');
 
     exec(
       `git ls-files -- "${escapedPath}"`,
@@ -50,9 +65,7 @@ export class GitDiffHandler {
       (lsErr: any, lsStdout: string) => {
         const isTracked = lsStdout.trim().length > 0;
         if (!isTracked) {
-          const absPath = path.isAbsolute(filePath)
-            ? filePath
-            : path.join(cwd, filePath);
+          const absPath = absFile;
           try {
             const content = fs.readFileSync(absPath, "utf-8");
             const diffOutput = `--- /dev/null\n+++ b/${filePath}\n@@ -0,0 +1,${content.split("\n").length} @@\n${content
@@ -102,9 +115,7 @@ export class GitDiffHandler {
                   (err && err.code === 1 && stdout.trim() === "") ||
                   (!hasDiffOutput && !err)
                 ) {
-                  const absPath = path.isAbsolute(filePath)
-                    ? filePath
-                    : path.join(cwd, filePath);
+                  const absPath = absFile;
                   try {
                     const content = fs.readFileSync(absPath, "utf-8");
                     const lines = content.split("\n");

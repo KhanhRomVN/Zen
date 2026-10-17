@@ -81,8 +81,6 @@ interface AIMessageBoxProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   /** Whether the current provider supports regenerate/revert mechanism */
   canRegenerate?: boolean;
-  /** View-only mode — ẩn revert icon trong ResponseMetadataBar */
-  isViewOnly?: boolean;
   /** Dangerous command warnings keyed by actionId */
   dangerousCommands?: Record<
     string,
@@ -131,7 +129,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   onRetryRequest,
   onRevertConversation,
   canRegenerate = true,
-  isViewOnly = false,
   dangerousCommands,
   onProceedDangerousCommand,
   onCancelDangerousCommand,
@@ -448,9 +445,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                       ? () => onRetryRequest(message.id)
                       : undefined
                   }
-                  onRevertConversation={
-                    isViewOnly ? undefined : onRevertConversation
-                  }
+                  onRevertConversation={onRevertConversation}
                   isStreaming={isGenerating}
                   conversationId={conversationId}
                   canRegenerate={canRegenerate}
@@ -509,7 +504,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               onSendMessage={onSendMessage}
               firstUnclickedActionIndex={firstUnclickedActionIndex}
               isAntiInjectionProvider={!!message.antiSystemPromptInjection}
-              isViewOnly={isViewOnly}
               dangerousCommands={dangerousCommands}
               onProceedDangerousCommand={onProceedDangerousCommand}
               onCancelDangerousCommand={onCancelDangerousCommand}
@@ -610,7 +604,6 @@ const AIMessageBox = React.memo(
       prevProps.terminalStatus === nextProps.terminalStatus;
     const sameCanRegenerate =
       prevProps.canRegenerate === nextProps.canRegenerate;
-    const sameIsViewOnly = prevProps.isViewOnly === nextProps.isViewOnly;
 
     // Check if dangerousCommands changed (reference equality is sufficient since it's a new object on update)
     const sameDangerousCommands =
@@ -627,7 +620,6 @@ const AIMessageBox = React.memo(
       sameToolOutputs &&
       sameTerminalStatus &&
       sameCanRegenerate &&
-      sameIsViewOnly &&
       sameDangerousCommands;
 
     const checkDuration = performance.now() - startTime;
@@ -644,7 +636,6 @@ const AIMessageBox = React.memo(
       if (!sameToolOutputs) changedProps.push("toolOutputs");
       if (!sameTerminalStatus) changedProps.push("terminalStatus");
       if (!sameCanRegenerate) changedProps.push("canRegenerate");
-      if (!sameIsViewOnly) changedProps.push("isViewOnly");
     }
 
     return shouldSkipRender; // true = skip re-render

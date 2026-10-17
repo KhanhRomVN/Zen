@@ -11,18 +11,14 @@ import { useBackendConnection } from "../../context/BackendConnectionContext";
 // Services
 import { getConversationKey } from "./services/ConversationService";
 import { extensionService } from "../../services/ExtensionService";
-import {
-  isBlockedNow,
-  isDeepSeekProvider,
-  getBlockedRangeLabel,
-  getBlockedHoursDescription,
-} from "../../utils/timeBlock";
 
 // Core chat hooks
 import { useChatLLM } from "./hooks/llm/useChatLLM";
 import { useToolExecution } from "./hooks/tools/useToolExecution";
 import { useWorkspaceData } from "./hooks/workspace/useWorkspaceData";
 import { useGitOperations } from "./hooks/workspace/useGitOperations";
+import { useGitRepoScanner } from "../../hooks/useGitRepoScanner";
+import GitRepoPickerDrawer from "../../components/MessageInput/GitRepoPickerDrawer";
 import { useConversationRestore } from "./hooks/conversation/useConversationRestore";
 import { useFileHandling } from "../../hooks/useFileHandling";
 import { useToolFormatSettings } from "../../hooks/useToolFormatSettings";
@@ -30,7 +26,6 @@ import { useToolFormatSettings } from "../../hooks/useToolFormatSettings";
 import { useBrowserSession } from "./hooks/llm/useBrowserSession";
 import { useDraftManagement } from "./hooks/conversation/useDraftManagement";
 import { useModelAccount } from "../../hooks/useModelAccount";
-import { useSessionCleanup } from "./hooks/llm/useSessionCleanup";
 
 // New modular hooks
 import { useApiConfiguration } from "./hooks/api/useApiConfiguration";
@@ -167,16 +162,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return result;
   }, [currentAccount?.provider_id, providers]);
 
-  // blocked_time_ranges từ provider config hiện tại — sync với deepseek.constant.ts qua API
-  const currentProviderBlockedRanges = React.useMemo(() => {
-    const providerId = currentModel?.providerId;
-    if (!providerId) return null;
-    const pc = providers.find(
-      (p: any) => p.provider_id?.toLowerCase() === providerId.toLowerCase(),
-    );
-    return pc?.blocked_time_ranges ?? null;
-  }, [currentModel?.providerId, providers]);
-
   // anti_system_prompt_injection từ provider config — sync với claude.constant.ts qua API.
   // Khi true: dùng claude-system-prompt riêng, zip workspace, parse ClaudeContentProcessor.
   // Khi false (constant bị comment out): toàn bộ cơ chế đặc thù tắt theo.
@@ -233,58 +218,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // ── Conversation title (set by AI via conversation_title tool or restored from storage) ──
   const [conversationTitle, setConversationTitle] = useState<string>("");
 
-  // Loaded conversation file stats from history
-  const [loadedConversationFileStats, setLoadedConversationFileStats] =
-    useState<{
-      totalFiles: number;
-      totalAdditions: number;
-      totalDeletions: number;
-    } | null>(null);
-
-  // ── View-only state ──────────────────────────────────────────────────
-  // true khi provider bị blocked_time_ranges (non-DeepSeek) → lock input, không xóa conv
-  const [isTimeBlockViewOnly, setIsTimeBlockViewOnly] = React.useState(false);
-
-  // true khi conversation load từ history + provider supports_session_cleanup / no-auth
-  // hoặc khi đang trong khung giờ blocked của non-DeepSeek provider
-  // hoặc khi account đạt usage >= 100%
-  const isViewOnly = React.useMemo(() => {
-    if (isTimeBlockViewOnly) return true;
-
-    // Bug fix: usage >= 100% → chuyển sang only-view để tránh gửi thêm request
-    const usageNum =
-      currentAccount?.usage != null ? Number(currentAccount.usage) : null;
-    if (usageNum !== null && usageNum >= 100) {
-      return true;
-    }
-
-    if (!loadedConversationFileStats) {
-      return false;
-    }
-    const providerId = currentModel?.providerId;
-    if (!providerId) {
-      return false;
-    }
-    const pc = providers.find(
-      (p: any) => p.provider_id?.toLowerCase() === providerId.toLowerCase(),
-    );
-    if (!pc) {
-      return false;
-    }
-    const isSessionCleanup = pc.supports_session_cleanup === true;
-    const authMethod = pc.auth_method;
-    const isNoAuth = Array.isArray(authMethod) && authMethod.length === 0;
-    const result = isSessionCleanup || isNoAuth;
-    return result;
-  }, [
-    currentModel?.providerId,
-    providers,
-    loadedConversationFileStats,
-    isTimeBlockViewOnly,
-    currentAccount?.usage,
-    currentAccount?.id,
-  ]);
-
   // Ref to setToolOutputs (will be set after useToolExecution)
   const setToolOutputsRef = useRef<any>(null);
 
@@ -324,7 +257,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         restoredConversationOverrides),
       toolFormat: conversationToolFormat,
     },
-    providerBlockedRanges: currentProviderBlockedRanges,
     antiSystemPromptInjection: currentAntiSystemPromptInjection,
     onToolRequest: (actions, assistantMessage, isAutoTrigger, actionType) =>
       handleToolRequest(
@@ -448,18 +380,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       fetchAccountStats();
     }
   }, [isStreaming, fetchAccountStats]);
-
-  // --- Session Cleanup ---
-  // Khi user rời chat view hoặc đổi account, dọn sạch conversation phía provider
-  // (chỉ với provider hỗ trợ: supports_session_cleanup = true, hiện tại: DeepSeek)
-  useSessionCleanup({
-    apiUrl,
-    accountId: currentAccount?.id ?? null,
-    providerId: currentAccount?.provider_id ?? null,
-    providers,
-    isInChatView: true, // component này render = đang ở chat view
-    isStreaming,
-  });
 
   // --- Workspace Data ---
   useWorkspaceData();
@@ -677,6 +597,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Store setToolOutputs ref for use in useChatLLM callback
   setToolOutputsRef.current = setToolOutputs;
 
+  // --- Git Repo Picker ---
+  const {
+    repos: gitRepos,
+    loading: gitReposLoading,
+    error: gitReposError,
+    scan: scanGitRepos,
+  } = useGitRepoScanner();
+  const [gitRepoPickerOpen, setGitRepoPickerOpen] = useState(false);
+
   // --- Git Operations ---
   const {
     gitStatus,
@@ -701,6 +630,38 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     setToolOutputs,
   });
 
+  const fillCommitPrompt = useCallback(
+    async (repoPath: string) => {
+      await handleGitPullRequest(repoPath);
+    },
+    [handleGitPullRequest],
+  );
+
+  const handleRequestGitRepoPicker = useCallback(async () => {
+    const list = await scanGitRepos();
+    if (list.length === 0) {
+      (window as any).vscodeApi?.postMessage({
+        command: "showInformation",
+        message: "Không tìm thấy git repo nào trong workspace (đã quét 4 cấp).",
+      });
+      return;
+    }
+    if (list.length === 1) {
+      // Chỉ có 1 repo → điền prompt luôn, không mở drawer
+      fillCommitPrompt(list[0].relPath);
+      return;
+    }
+    setGitRepoPickerOpen(true);
+  }, [scanGitRepos, fillCommitPrompt]);
+
+  const handleSelectGitRepo = useCallback(
+    (repo: { relPath: string }) => {
+      setGitRepoPickerOpen(false);
+      fillCommitPrompt(repo.relPath);
+    },
+    [fillCommitPrompt],
+  );
+
   // --- Conversation Restore ---
   const {
     isLoadingConversation,
@@ -724,7 +685,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     onBack,
     revertParentMessageIdRef,
     setRevertInput,
-    setLoadedConversationFileStats,
   });
 
   // --- Message Parsing (with caching) ---
@@ -741,10 +701,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const conversationInsights = useConversationInsights(parsedMessages);
 
   // --- File Stats ---
-  const conversationFileStats = useFileStats(
-    messages,
-    loadedConversationFileStats,
-  );
+  const conversationFileStats = useFileStats(messages);
 
   // --- Current Task Name ---
   const currentTaskName = useMemo(() => {
@@ -807,89 +764,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     setProjectContext,
     addAttachedItem,
   });
-
-  // --- Time-Block Monitoring: Chặn provider trong giờ cấm khi đang chat ─
-  // DeepSeek (AIWeb2API): xóa conversation + hiển thị lỗi khi blocked.
-  // Provider khác có blocked_time_ranges: lock view-only, không xóa.
-  // Kiểm tra mỗi 30 giây. Ranges lấy từ provider config.
-  useEffect(() => {
-    const checkTimeBlock = () => {
-      const providerId = currentModelRef.current?.providerId;
-      if (!providerId) return;
-
-      // Lấy ranges từ provider config đã fetch
-      const providerConfig = providers.find(
-        (p: any) => p.provider_id?.toLowerCase() === providerId?.toLowerCase(),
-      );
-      const ranges = providerConfig?.blocked_time_ranges ?? null;
-      if (!ranges || ranges.length === 0) {
-        setIsTimeBlockViewOnly(false);
-        return;
-      }
-
-      if (!isBlockedNow(ranges)) {
-        setIsTimeBlockViewOnly(false);
-        return;
-      }
-
-      if (isDeepSeekProvider(providerId)) {
-        // DeepSeek (AIWeb2API): xóa conversation
-        const rangeLabel = getBlockedRangeLabel(ranges);
-        const allRanges = getBlockedHoursDescription(ranges);
-        const errorMsg =
-          `⛔ DeepSeek bị chặn trong khung giờ ${allRanges}. ` +
-          `Hiện tại đang trong khung ${rangeLabel}. Conversation đã bị xóa. Vui lòng thử lại sau.`;
-
-        if (isProcessing || isStreaming) {
-          stopGeneration();
-        }
-
-        if (currentConversationId) {
-          extensionService.postMessage({
-            command: "deleteConversation",
-            conversationId: currentConversationId,
-            requestId: `time-block-monitor-${Date.now()}`,
-          });
-        }
-
-        resetSession();
-
-        const blockErrorMessage = {
-          id: `msg-${Date.now()}-time-block-monitor`,
-          role: "assistant" as const,
-          content: errorMsg,
-          timestamp: Date.now(),
-          isError: true,
-        };
-        setMessages([blockErrorMessage]);
-        setIsTimeBlockViewOnly(false);
-      } else {
-        // Provider khác (Zen): lock view-only, không xóa conversation
-        const rangeLabel = getBlockedRangeLabel(ranges);
-        const allRanges = getBlockedHoursDescription(ranges);
-        if (isProcessing || isStreaming) {
-          stopGeneration();
-        }
-        setIsTimeBlockViewOnly(true);
-      }
-    };
-
-    // Kiểm tra ngay khi mount (phòng trường hợp load lại trong giờ cấm)
-    checkTimeBlock();
-
-    // Kiểm tra mỗi 30 giây
-    const interval = setInterval(checkTimeBlock, 30_000);
-    return () => clearInterval(interval);
-  }, [
-    providers,
-    currentConversationId,
-    isProcessing,
-    isStreaming,
-    stopGeneration,
-    resetSession,
-    setMessages,
-  ]);
-  // ─────────────────────────────────────────────────────────────────────
 
   const memoizedMessages = useMemo(
     () => messages,
@@ -962,7 +836,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     hasProcessedInitial.current = false;
     resetSession();
-    setLoadedConversationFileStats(null);
   }, [currentChat?.sessionId, resetSession]);
 
   // Sync currentModel/currentAccount from initialMessageData
@@ -1302,8 +1175,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isGitStatusVisible={showGitStatusBlock}
         onBackToHome={handleBackToHome}
         isLoadingConversation={isLoadingConversation}
-        canRegenerate={canRegenerate && !isViewOnly}
-        isViewOnly={isViewOnly}
+        canRegenerate={canRegenerate}
         toolFormat={currentToolFormat}
         dangerousCommands={dangerousCommands}
         onProceedDangerousCommand={proceedDangerousCommand}
@@ -1344,6 +1216,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isLaunchingBrowser={isLaunchingBrowser}
         onLaunchBrowserSession={launchBrowserSession}
         onGitPullRequest={handleGitPullRequest}
+        onRequestGitRepoPicker={handleRequestGitRepoPicker}
         gitLoading={gitLoading}
         isGitStatusVisible={showGitStatusBlock}
         removeAttachedItem={handleRemoveAttachedItem}
@@ -1355,7 +1228,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         footerPaddingBottom={footerPaddingBottom}
         gitStatus={gitStatus}
         onOpenGitStatus={() => setShowGitStatusBlock(true)}
-        loadedConversationFileStats={loadedConversationFileStats}
         onRevertConversation={handleRevertConversation}
         autoScrollPaused={autoScrollPaused}
         scrollToBottom={scrollToBottomRef.current || undefined}
@@ -1366,9 +1238,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             .forEach((i: any) => handleRemoveAttachedItem(i.id));
           items.forEach((item) => addAttachedItemWithCache(item));
         }}
-        isViewOnly={isViewOnly}
         conversationToolFormat={conversationToolFormat}
         onConversationToolFormatToggle={handleToolFormatToggle}
+      />
+      <GitRepoPickerDrawer
+        isOpen={gitRepoPickerOpen}
+        onClose={() => setGitRepoPickerOpen(false)}
+        repos={gitRepos}
+        loading={gitReposLoading}
+        error={gitReposError}
+        onRefresh={scanGitRepos}
+        onSelect={handleSelectGitRepo}
       />
     </div>
   );

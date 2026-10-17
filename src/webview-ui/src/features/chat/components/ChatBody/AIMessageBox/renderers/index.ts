@@ -14,6 +14,7 @@ export { DeleteFileRenderer } from "./DeleteFileRenderer";
 export { ViewReplaceHistoryRenderer } from "./ViewReplaceHistoryRenderer";
 export { RunCommandRenderer } from "./RunCommandRenderer";
 export { GitStatusRenderer } from "./GitStatusRenderer";
+export { GitDiffRenderer } from "./GitDiffRenderer";
 export { CommitMessageRenderer } from "./CommitMessageRenderer";
 export { ReadSkillRenderer } from "./ReadSkillRenderer";
 export { ReadMemoryRenderer } from "./ReadMemoryRenderer";

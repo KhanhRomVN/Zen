@@ -81,7 +81,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   onBackToHome,
   isLoadingConversation = false,
   canRegenerate = true,
-  isViewOnly = false,
   toolFormat = "xml",
   dangerousCommands,
   onProceedDangerousCommand,
@@ -380,7 +379,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                   onBackToHome={onBackToHome}
                   onRetryRequest={handleRetryRequest}
                   canRegenerate={canRegenerate}
-                  isViewOnly={isViewOnly}
                   dangerousCommands={dangerousCommands}
                   onProceedDangerousCommand={onProceedDangerousCommand}
                   onCancelDangerousCommand={onCancelDangerousCommand}
@@ -439,7 +437,6 @@ const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
     prevProps.isGitStatusVisible === nextProps.isGitStatusVisible &&
     prevProps.singleLineReviewActions === nextProps.singleLineReviewActions &&
     prevProps.canRegenerate === nextProps.canRegenerate &&
-    prevProps.isViewOnly === nextProps.isViewOnly &&
     // [FIX] Ensure dangerousCommands triggers re-render
     prevProps.dangerousCommands === nextProps.dangerousCommands
   );

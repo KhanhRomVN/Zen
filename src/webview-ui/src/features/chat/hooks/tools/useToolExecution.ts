@@ -166,6 +166,19 @@ export const useToolExecution = ({
     toolOutputsRef.current = toolOutputs;
   }, [toolOutputs]);
 
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const { command, actionId, output, isError } = event.data || {};
+      if (command !== "setToolOutput" || !actionId) return;
+      setToolOutputs((prev) => ({
+        ...prev,
+        [actionId]: { output: output ?? "", isError: !!isError },
+      }));
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
   // Listen for tool execution events from extension
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {

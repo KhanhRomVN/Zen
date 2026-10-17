@@ -46,6 +46,8 @@ export interface MessageInputProps {
   isLaunchingBrowser?: boolean;
   onLaunchBrowserSession?: () => void;
   onGitPullRequest?: () => void;
+  /** Mở modal chọn git repo (dùng khi user bấm Generate Commit Message). */
+  onRequestGitRepoPicker?: () => void;
   isGitLoading?: boolean;
   isGitStatusVisible?: boolean;
   gitStatus?: { items?: any[]; branch?: string } | null;
@@ -89,9 +91,6 @@ export interface MessageInputProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   autoScrollPaused?: boolean;
   scrollToBottom?: () => void;
-  enableViewOnlyMode?: boolean;
-  /** External flag: conversation đang ở chế độ chỉ xem — hiển thị badge View Only trên toolbar. */
-  isViewOnly?: boolean;
   /** Gọi khi người dùng chọn (hoặc vừa tạo) 1 rule để gắn vào input. */
   onSelectRule?: (item: AttachedItem) => void;
   /** Gọi khi xác nhận chọn skill — truyền toàn bộ tập skill mới (thay thế tập cũ). */

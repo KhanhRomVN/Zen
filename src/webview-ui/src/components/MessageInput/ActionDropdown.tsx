@@ -82,7 +82,7 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   // Prefer currentModelConfig (always fresh from API), fallback to currentModel (may be cached)
   const modelCaps = currentModelConfig ?? currentModel;
 
-  // Trạng thái kiểm tra git — chỉ dùng cho item Generate Commit Message
+  // Trạng thái kiểm tra git — chỉ hiển thị thông tin, không chặn click
   const [gitReady, setGitReady] = useState<{
     checking: boolean;
     ok: boolean;
@@ -193,10 +193,12 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
       label: "Generate Commit Message",
       icon: <GitCommitHorizontal size={14} strokeWidth={2.3} />,
       color: "#f59e0b",
-      desc: "Generate a commit message from staged changes",
+      desc: gitReady.checking
+        ? "Đang kiểm tra git..."
+        : gitReady.ok
+          ? "Generate a commit message from staged changes"
+          : "Chọn repository để tạo commit message",
       show: !!onSelectPullRequest,
-      disabled: !gitReady.ok,
-      disabledReason: gitReady.reason,
     },
   ];
 

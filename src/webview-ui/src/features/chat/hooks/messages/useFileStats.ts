@@ -10,10 +10,7 @@ interface FileStats {
 /**
  * Hook to calculate conversation file statistics with incremental computation
  */
-export const useFileStats = (
-  messages: Message[],
-  loadedConversationFileStats: FileStats | null,
-): FileStats => {
+export const useFileStats = (messages: Message[]): FileStats => {
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
 
@@ -24,19 +21,6 @@ export const useFileStats = (
   >(new Map());
 
   const conversationFileStats = useMemo(() => {
-    // If we have loaded stats from history and no new messages, use loaded stats
-    if (
-      loadedConversationFileStats &&
-      messages.length > 0 &&
-      messages.every(
-        (m) =>
-          !m.content?.includes("<write_to_file>") &&
-          !m.content?.includes("<str_replace>"),
-      )
-    ) {
-      return loadedConversationFileStats;
-    }
-
     // PERF OPTIMIZATION: Incremental computation - only scan new messages
     const canUseIncremental = messages.length >= lastFileStatsLengthRef.current;
 
@@ -75,7 +59,7 @@ export const useFileStats = (
       totalAdditions,
       totalDeletions,
     };
-  }, [messages, loadedConversationFileStats]);
+  }, [messages]);
 
   return conversationFileStats;
 };

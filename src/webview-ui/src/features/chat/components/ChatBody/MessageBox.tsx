@@ -98,10 +98,6 @@ export interface MessageBoxProps {
   onRetryRequest?: (messageId: string) => void;
   /** Whether the current provider supports regenerate/revert mechanism */
   canRegenerate?: boolean;
-  /**
-   * View-only mode: ẩn revert/edit icon trong UserMessageBox và ResponseMetadataBar.
-   */
-  isViewOnly?: boolean;
   /** Dangerous command warnings keyed by actionId */
   dangerousCommands?: Record<
     string,
@@ -263,7 +259,6 @@ const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
         onRegenerateRequest={onRegenerateRequest}
         onEditRequest={(props as any).onEditRequest}
         canRegenerate={props.canRegenerate}
-        isViewOnly={props.isViewOnly}
       />
     );
   }
@@ -302,7 +297,6 @@ const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
     prevProps.isGenerating === nextProps.isGenerating &&
     prevProps.toolOutputs === nextProps.toolOutputs &&
     prevProps.canRegenerate === nextProps.canRegenerate &&
-    prevProps.isViewOnly === nextProps.isViewOnly &&
     sameDangerousCommands
   );
 });

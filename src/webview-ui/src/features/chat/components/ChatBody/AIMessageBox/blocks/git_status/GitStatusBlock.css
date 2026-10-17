@@ -119,7 +119,16 @@
   align-items: center;
   gap: 6px;
   height: 24px;
-  border: 1px solid transparent;
+  border: none;
+  outline: none;
+}
+
+.git-status-btn-cancel {
+  order: 1;
+}
+
+.git-status-btn-confirm {
+  order: 2;
 }
 
 .git-status-btn:disabled {

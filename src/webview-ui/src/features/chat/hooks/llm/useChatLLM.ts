@@ -26,12 +26,6 @@ import { StreamingService } from "../../services/StreamingService";
 import { processClaudeContent } from "../../services/ClaudeContentProcessor";
 import { ClaudeRawLogger } from "../../services/ClaudeRawLogger";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
-import {
-  isBlockedNow,
-  isDeepSeekProvider,
-  getBlockedRangeLabel,
-  getBlockedHoursDescription,
-} from "../../../../utils/timeBlock";
 
 interface ConversationOverrides {
   diagnosticEnabled?: boolean;
@@ -45,8 +39,6 @@ interface UseChatLLMProps {
   selectedTab: ChatSession | null;
   /** Per-conversation feature overrides from Home panel */
   conversationOverrides?: ConversationOverrides;
-  /** Blocked time ranges từ provider config — sync với deepseek.constant.ts qua API */
-  providerBlockedRanges?: Array<{ startTime: number; endTime: number }> | null;
   /** Cờ anti_system_prompt_injection từ provider config — thay cho hardcode providerId === "claude" */
   antiSystemPromptInjection?: boolean;
   onConversationIdChange?: (id: string) => void;
@@ -126,7 +118,6 @@ export const useChatLLM = ({
   apiUrl,
   selectedTab,
   conversationOverrides,
-  providerBlockedRanges,
   antiSystemPromptInjection = false,
   onConversationIdChange,
   onToolRequest,
@@ -211,8 +202,6 @@ export const useChatLLM = ({
   const [conversationToolOverrides, setConversationToolOverrides] = useState<
     Record<string, "auto">
   >({});
-  const unexecutedToolRetryCountRef = useRef<number>(0);
-  const sendMessageRef = useRef<any>(null);
 
   // Sync messages to ref
   useEffect(() => {
@@ -254,7 +243,6 @@ export const useChatLLM = ({
     setIsProcessingSync(false);
     dispatchStreaming({ type: "STOP_ALL" });
     setConversationToolOverrides({});
-    unexecutedToolRetryCountRef.current = 0;
   }, [setIsProcessingSync, dispatchStreaming]);
 
   /**
@@ -354,52 +342,6 @@ export const useChatLLM = ({
         return;
       }
 
-      const currentProviderId =
-        model?.providerId ?? lastUsedModelRef.current?.providerId;
-      if (
-        !skipFirstRequestLogic &&
-        isDeepSeekProvider(currentProviderId) &&
-        isBlockedNow(providerBlockedRanges)
-      ) {
-        const rangeLabel = getBlockedRangeLabel(providerBlockedRanges);
-        const allRanges = getBlockedHoursDescription(providerBlockedRanges);
-        const errorMsg =
-          `DeepSeek bị chặn trong khung giờ ${allRanges}. ` +
-          `Hiện tại đang trong khung ${rangeLabel}. Vui lòng thử lại sau.`;
-
-        // Xóa conversation hiện tại nếu đây là session mới (chưa có messages)
-        // hoặc xóa conversation đang mở để ngăn tiếp tục dùng DeepSeek.
-        const convIdToDelete = currentConversationIdRef.current;
-        if (convIdToDelete) {
-          deleteConversation(convIdToDelete);
-          // Yêu cầu extension host xóa file conversation
-          extensionService.postMessage({
-            command: "deleteConversation",
-            conversationId: convIdToDelete,
-            requestId: `time-block-${Date.now()}`,
-          });
-          // Reset state local
-          currentConversationIdRef.current = "";
-          backendConversationIdRef.current = "";
-          messagesRef.current = [];
-          setCurrentConversationId("");
-          setMessages([]);
-        }
-
-        // Hiển thị error message
-        const blockErrorMessage: Message = {
-          id: `msg-${Date.now()}-time-block-error`,
-          role: "assistant",
-          content: errorMsg,
-          timestamp: Date.now(),
-          isError: true,
-        };
-        setMessages([blockErrorMessage]);
-        messagesRef.current = [blockErrorMessage];
-        return;
-      }
-      // ────────────────────────────────────────────────────────────────────
-
       const sessionId = selectedTab?.sessionId || -1;
       const folderPath = selectedTab?.folderPath || null;
 
@@ -478,7 +420,6 @@ export const useChatLLM = ({
       // Increment user request counter
       if (!skipFirstRequestLogic) {
         userRequestCountRef.current += 1;
-        unexecutedToolRetryCountRef.current = 0;
       }
 
       // Build prompt using PromptBuilder
@@ -1249,41 +1190,6 @@ export const useChatLLM = ({
           return;
         }
 
-        // 🚨 DETECT UNEXECUTED / CORRUPTED TOOL CALL (DeepSeek JSON output format issue)
-        // Nếu phát hiện AI đã xuất cú pháp gọi tool nhưng không có action nào được thực thi
-        // (do format output bị lỗi, unescaped newlines/quotes khi sinh code lớn),
-        // hệ thống tự động gửi 1 request yêu cầu AI xác nhận/thực thi lại thay vì để user tự gõ "try again".
-        const unexecutedTools = parsed?.unexecutedToolCalls || [];
-        if (
-          !hasParsingError &&
-          unexecutedTools.length > 0 &&
-          (!parsed.actions || parsed.actions.length === 0)
-        ) {
-          const failedTool = unexecutedTools[0];
-          console.warn(
-            `[Zen][sendMessage] ⚠️ Detected unexecuted tool call "${failedTool.toolName}" due to JSON syntax/format error. Triggering auto-recovery feedback...`,
-          );
-
-          if (unexecutedToolRetryCountRef.current < 2) {
-            unexecutedToolRetryCountRef.current += 1;
-            setTimeout(() => {
-              const sendFn = sendMessageRef.current || sendMessage;
-              sendFn(
-                `[System] Tool execution incomplete: Your previous response contained a tool call for "${failedTool.toolName}" but it could not be executed because the JSON output format was corrupted/invalid (likely due to unescaped newlines or quotes in large code content). No file was written and no tool result was generated. Please verify the tool status and re-emit the tool call with valid JSON encoding (or split into smaller files/parts) so the system can execute it.`,
-                undefined,
-                undefined,
-                undefined,
-                true, // skipFirstRequestLogic = true
-              );
-            }, 600);
-            return;
-          } else {
-            unexecutedToolRetryCountRef.current = 0;
-          }
-        } else {
-          unexecutedToolRetryCountRef.current = 0;
-        }
-
         if (
           !hasParsingError &&
           parsed &&
@@ -1393,7 +1299,6 @@ export const useChatLLM = ({
       dispatchStreaming,
     ],
   );
-  sendMessageRef.current = sendMessage;
 
   /**
    * Handle tool action

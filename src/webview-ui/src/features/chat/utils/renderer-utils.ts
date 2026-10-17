@@ -41,6 +41,36 @@ export const collectConvFilePaths = (allMessages: Message[]): string[] => {
 };
 
 /**
+ * Collects file paths of the git_diff tool calls that led to the commit
+ * message at `messageId` (nearest first, stops at the previous commit_message).
+ */
+export const collectGitDiffPaths = (
+  allMessages: Message[],
+  messageId: string,
+): string[] => {
+  const end = allMessages.findIndex((m) => m.id === messageId);
+  if (end < 0) return [];
+  const patterns = [
+    /<git_diff>\s*<file_path>([\s\S]*?)<\/file_path>/g,
+    /"tool"\s*:\s*"git_diff"\s*,\s*"params"\s*:\s*\{\s*"file_path"\s*:\s*"((?:[^"\\]|\\.)*)"/g,
+  ];
+  const paths: string[] = [];
+  for (let i = end; i >= 0; i--) {
+    const msg = allMessages[i];
+    if (msg.role !== "assistant") continue;
+    if (i < end && /commit_message/.test(msg.content)) break;
+    for (const re of patterns) {
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(msg.content)) !== null) {
+        if (m[1].trim()) paths.push(m[1].trim());
+      }
+      re.lastIndex = 0;
+    }
+  }
+  return paths;
+};
+
+/**
  * Build tree structure from flat list of paths
  */
 export const buildTreeFromPaths = (paths: string[]): FileNode[] => {

@@ -51,7 +51,8 @@ import {
   ReadMemoryRenderer, // read_memory
   UpdateMemoryRenderer, // update_memory
 } from "./renderers";
-import { GitDiffBlock } from "./blocks/git_diff/GitDiffBlock";
+import { GitDiffRenderer } from "./renderers/GitDiffRenderer";
+import { collectGitDiffPaths } from "../../../utils/renderer-utils";
 import { CodeBlock } from "./blocks/code/CodeBlock";
 import ErrorBlock from "./blocks/error/ErrorBlock";
 import ActionBar from "./ActionBar";
@@ -116,8 +117,6 @@ interface TagRouterProps {
   /** True khi message được tạo bởi claude provider — các tool read/run chỉ display-only */
   /** Cờ anti-injection (persist theo message) — thay cho hardcode providerId === "claude" */
   isAntiInjectionProvider?: boolean;
-  /** View-only: disable question/option buttons */
-  isViewOnly?: boolean;
   /** Dangerous command warnings keyed by actionId */
   dangerousCommands?: Record<
     string,
@@ -126,85 +125,6 @@ interface TagRouterProps {
   onProceedDangerousCommand?: (actionId: string) => void;
   onCancelDangerousCommand?: (actionId: string) => void;
 }
-
-interface GitDiffItemProps {
-  action: any;
-  actionIndex: number;
-  messageId: string;
-  toolOutputs?: Record<string, { output: string; isError: boolean }>;
-  isActiveGroup?: boolean;
-  isLastMessage?: boolean;
-  onToolClick: (...args: any[]) => void;
-  branch?: string;
-}
-
-/** Renders a single git_diff action; hooks live here so a group can map over it. */
-const GitDiffItem: React.FC<GitDiffItemProps> = ({
-  action,
-  actionIndex,
-  messageId,
-  toolOutputs,
-  isActiveGroup = false,
-  isLastMessage = false,
-  onToolClick,
-  branch,
-}) => {
-  const filePath = action.params.file_path || "";
-  const actionId = `${messageId}-action-${actionIndex}`;
-
-  const outputData = toolOutputs?.[actionId];
-  const diffContent = outputData?.output || action.params.diff || "";
-  const hasOutput = !!outputData && !outputData.isError;
-
-  const hasTriggeredExecution = React.useRef(false);
-  React.useEffect(() => {
-    if (
-      !hasTriggeredExecution.current &&
-      !hasOutput &&
-      isActiveGroup &&
-      !isLastMessage
-    ) {
-      hasTriggeredExecution.current = true;
-      onToolClick(action, messageId, actionIndex, "accept");
-    }
-  }, [hasOutput, isActiveGroup, isLastMessage, actionId]);
-
-  let added = 0;
-  let deleted = 0;
-  for (const line of (diffContent as string).split("\n")) {
-    if (line.startsWith("+") && !line.startsWith("+++")) added++;
-    if (line.startsWith("-") && !line.startsWith("---")) deleted++;
-  }
-
-  const showSkeleton = !hasOutput && !isActiveGroup;
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        gap: "6px",
-      }}
-    >
-      <GitDiffBlock
-        filePath={filePath}
-        diffContent={showSkeleton ? "" : diffContent}
-        added={showSkeleton ? 0 : added}
-        deleted={showSkeleton ? 0 : deleted}
-        statusColor="var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-        isPartial={showSkeleton || (!hasOutput && isActiveGroup)}
-        branch={branch}
-        onFileClick={(path: any) => {
-          const vscodeApi = (window as any).vscodeApi;
-          if (vscodeApi) {
-            vscodeApi.postMessage({ command: "openFile", path });
-          }
-        }}
-      />
-    </div>
-  );
-};
 
 const TagRouterInternal: React.FC<TagRouterProps> = ({
   group,
@@ -241,7 +161,6 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   isBlockedByPrecedingInteraction = false,
   firstUnclickedActionIndex,
   isAntiInjectionProvider = false,
-  isViewOnly = false,
   dangerousCommands,
   onProceedDangerousCommand,
   onCancelDangerousCommand,
@@ -285,7 +204,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         optional={group.optional}
         selectedOption={group.selectedOption}
         questionAnswers={group.questionAnswers}
-        disabled={!!nextUserMessage || isGenerating || isViewOnly}
+        disabled={!!nextUserMessage || isGenerating}
         onAnswer={(questionId, value) => {
           if (!hasQuestions) return;
           if (onSelectOption) {
@@ -984,9 +903,11 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         messageId={messageId}
         isActionClicked={clickedActions.has(actionId)}
         isRejected={isRejected}
+        toolOutputs={toolOutputs}
         isLastItemInList={isLastItemInList}
         onToolClick={onToolClick}
         branch={gitStatusBranch}
+        hintPaths={collectGitDiffPaths(allMessages || [], messageId)}
       />
     );
   }
@@ -995,7 +916,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
     return (
       <>
         {toolGroup.map(({ action, index }) => (
-          <GitDiffItem
+          <GitDiffRenderer
             key={index}
             action={action}
             actionIndex={index}
@@ -1003,6 +924,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             toolOutputs={toolOutputs}
             isActiveGroup={isActiveGroup}
             isLastMessage={isLastMessage}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
             onToolClick={onToolClick}
             branch={gitStatusBranch}
           />

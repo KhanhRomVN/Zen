@@ -21,7 +21,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 
 // ── UI ──
-import { Trash2, Copy, FolderOpen, Zap, Eye, Clock } from 'lucide-react';
+import { Trash2, Copy, FolderOpen, Zap, Clock } from 'lucide-react';
 
 // ── Services ──
 import { extensionService } from '../../../services/ExtensionService';
@@ -36,8 +36,6 @@ interface HistoryCardProps {
   onDelete: (id: string, e: React.MouseEvent) => void;
   formatDate: (timestamp: number) => string;
   providerFavicons?: Record<string, string>;
-  /** Conversation này thuộc provider view-only (session_cleanup / no-auth) */
-  isViewOnly?: boolean;
   /** Hội thoại này đang được mở trong Chat */
   selected?: boolean;
 }
@@ -105,7 +103,7 @@ const CARD_CSS = `
 .hc-model { max-width: 55%; padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--primary-text, #ccc) 7%, transparent); color: var(--secondary-text, #858585); font-size: 10px; font-weight: 500; line-height: 15px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .hc-stat { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 500; color: var(--secondary-text, #858585); flex-shrink: 0; }
 .hc-spacer { flex: 1; }
-.hc-viewonly { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; letter-spacing: .03em; color: #ca8a04; background: color-mix(in srgb, #eab308 14%, transparent); border: 1px solid color-mix(in srgb, #eab308 35%, transparent); flex-shrink: 0; }
+
 .hc-token { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; flex-shrink: 0; color: var(--tone); background: color-mix(in srgb, var(--tone) 14%, transparent); border: none; }
 
 .hc-tip { position: fixed; z-index: 2000; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; overflow: hidden; pointer-events: none; border-radius: 12px; background: var(--tertiary-bg, #2d2d30); border: 1px solid var(--border-color, #3e3e42); box-shadow: 0 12px 32px rgba(0,0,0,.35); }
@@ -236,7 +234,6 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   onClick,
   onDelete,
   providerFavicons,
-  isViewOnly = false,
   selected = false,
 }) => {
   // ── State ──
@@ -542,12 +539,6 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
               {totalMsgs} msg
             </span>
             <span className='hc-spacer' />
-            {isViewOnly && (
-              <span className='hc-viewonly'>
-                <Eye size={9} />
-                View Only
-              </span>
-            )}
             {tokens > 0 && (
               <span
                 className='hc-token'

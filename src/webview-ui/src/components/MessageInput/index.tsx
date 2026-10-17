@@ -1,5 +1,16 @@
 import React from "react";
 import { Plus, Send, X } from "lucide-react";
+import { flushSync } from "react-dom";
+import { MentionPopup } from "./MentionPopup";
+import { useMentionEditor } from "./hooks/useMentionEditor";
+import {
+  getFileBadgePath,
+  placeCaretAtEnd,
+  renderMessageToEditor,
+  resolveMentionTokens,
+  serializeEditor,
+} from "./mentionEditor";
+import { extensionService } from "@/services/ExtensionService";
 import { useProject } from "@/context/ProjectContext";
 import { useWorkspaceZipSize } from "./hooks/useWorkspaceZipSize";
 import { ClaudeZipBadge } from "./ClaudeZipBadge";
@@ -33,12 +44,6 @@ import type {
   ToggleButtonProps,
 } from "./types";
 import { PERMISSION_MODE } from "../../features/chat/constants/constants";
-import {
-  isDeepSeekProvider,
-  isBlockedNow,
-  getBlockedRangeLabel,
-  getBlockedHoursDescription,
-} from "../../utils/timeBlock";
 
 export type { UploadedFile };
 
@@ -731,11 +736,11 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     isLaunchingBrowser = false,
     onLaunchBrowserSession,
     onGitPullRequest,
+    onRequestGitRepoPicker,
     isGitLoading = false,
     isGitStatusVisible = false,
     gitStatus,
     onOpenGitStatus,
-    conversationFileStats,
     onReviewClick,
     responseRange,
     responseRanges = [],
@@ -743,8 +748,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     onRevertConversation,
     autoScrollPaused = false,
     scrollToBottom,
-    enableViewOnlyMode = false,
-    isViewOnly = false,
     onSelectRule,
     onSelectSkills,
     onRemoveAttachedItem,
@@ -763,9 +766,39 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
     // Removed Prompt History Navigation to restore default ArrowUp/ArrowDown behavior
 
+    const editorRef = React.useRef<HTMLDivElement>(null);
+    const handleSendRef = React.useRef(handleSend);
+    handleSendRef.current = handleSend;
+
+    const syncEditorToMessage = React.useCallback(() => {
+      const editor = editorRef.current;
+      const hidden = textareaRef.current;
+      if (!editor || !hidden) return;
+      hidden.value = serializeEditor(editor);
+      handleTextareaChange({
+        target: hidden,
+        currentTarget: hidden,
+      } as React.ChangeEvent<HTMLTextAreaElement>);
+    }, [textareaRef, handleTextareaChange]);
+
+    const mention = useMentionEditor(editorRef, syncEditorToMessage);
+
+    React.useEffect(() => {
+      const editor = editorRef.current;
+      if (!editor || serializeEditor(editor) === message) return;
+      renderMessageToEditor(editor, message);
+      if (document.activeElement === editor) placeCaretAtEnd(editor);
+    }, [message]);
+
     const onSendMessage = () => {
-      if (message.trim()) {
-        savePromptToHistory(message);
+      const resolved = resolveMentionTokens(message);
+      if (resolved.trim()) {
+        savePromptToHistory(resolved);
+      }
+      if (resolved !== message) {
+        flushSync(() => setMessage(resolved));
+        handleSendRef.current(currentModel, currentAccount);
+        return;
       }
       handleSend(currentModel, currentAccount);
     };
@@ -871,54 +904,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       zipTriggerKey,
     );
 
-    // ─── View-only mode detection ────────────────────────────────────
-    // Hai trường hợp view-only:
-    // 1. Provider không cần auth (auth_method rỗng) khi load từ history
-    // 2. Provider có supports_session_cleanup = true khi load từ history
-    //    (conversation của provider này không thể tiếp tục vì session đã bị dọn)
-    // Conversation mới tạo → không disable
-    const isViewOnlyProvider = React.useMemo(() => {
-      if (!enableViewOnlyMode) return false;
-      if (!currentProviderConfig) return false;
 
-      // Check if loaded from history (has conversation file stats from backend)
-      const isLoadedFromHistory = conversationFileStats != null;
-      if (!isLoadedFromHistory) return false; // Conversation mới → không disable
-
-      const authMethod = currentProviderConfig.auth_method;
-      const isNoAuth = Array.isArray(authMethod) && authMethod.length === 0;
-      const isSessionCleanup =
-        (currentProviderConfig as any).supports_session_cleanup === true;
-      const result = isNoAuth || isSessionCleanup;
-      return result;
-    }, [enableViewOnlyMode, currentProviderConfig, conversationFileStats]);
-
-    // ─── Time-block detection ────────────────────────────────────────
-    // Kiểm tra live mỗi khi render — provider DeepSeek bị cấm theo khung giờ UTC.
-    // Dùng state để re-check mỗi 30s (tránh user bị kẹt nếu vào đúng lúc chuyển giờ).
-    // Ranges lấy từ provider config (sync với deepseek.constant.ts), không hardcode.
-    const [timeBlockTick, setTimeBlockTick] = React.useState(0);
-    React.useEffect(() => {
-      const id = setInterval(() => setTimeBlockTick((n) => n + 1), 30_000);
-      return () => clearInterval(id);
-    }, []);
-    const providerBlockedRanges =
-      (currentProviderConfig as any)?.blocked_time_ranges ?? null;
-    const isTimeBlocked = React.useMemo(() => {
-      void timeBlockTick; // trigger re-eval khi tick đổi
-      return (
-        isDeepSeekProvider(currentModel?.providerId) &&
-        isBlockedNow(providerBlockedRanges)
-      );
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentModel?.providerId, timeBlockTick, providerBlockedRanges]);
-    const timeBlockLabel = React.useMemo(() => {
-      if (!isTimeBlocked) return null;
-      return {
-        current: getBlockedRangeLabel(providerBlockedRanges),
-        all: getBlockedHoursDescription(providerBlockedRanges),
-      };
-    }, [isTimeBlocked, providerBlockedRanges]);
 
     const {
       showThinkingButton,
@@ -1004,12 +990,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       if (isProcessing) {
         return "Processing...";
       }
-      if (isViewOnlyProvider) {
-        return "View only — this conversation cannot be continued";
-      }
-      if (isTimeBlocked && timeBlockLabel) {
-        return `DeepSeek is blocked during ${timeBlockLabel.all}`;
-      }
       if (!currentModel) {
         return "Select a model to start";
       }
@@ -1024,9 +1004,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       isConnected,
       isLoadingCache,
       isProcessing,
-      isViewOnlyProvider,
-      isTimeBlocked,
-      timeBlockLabel,
       currentModel,
       currentAccount,
       supportsUpload,
@@ -1374,18 +1351,21 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               borderRadius: "var(--border-radius)",
               border: !isConnected
                 ? "1px dashed var(--vscode-errorForeground, #f44336)"
-                : isTimeBlocked
-                  ? "1px dashed var(--vscode-editorWarning-foreground, #f97316)"
-                  : isTokenLimitExceeded
-                    ? "2px dashed var(--vscode-errorForeground, #f44336)"
-                    : isViewOnlyProvider
-                      ? "1px dashed #eab308"
-                      : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+                : isTokenLimitExceeded
+                  ? "2px dashed var(--vscode-errorForeground, #f44336)"
+                  : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
               transition: "border 0.3s ease",
             }}
           >
+            {mention.isOpen && (
+              <MentionPopup
+                items={mention.items}
+                query={mention.query ?? ""}
+                onSelect={mention.selectItem}
+              />
+            )}
             {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
-            {!isConversationStarted && (
+            {!isConversationStarted && !mention.isOpen && (
               <div
                 onClick={() => {
                   setShowModelDrawer((v) => !v);
@@ -1409,12 +1389,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   // Normal border: overlap by 1px so badge sits flush on border.
                   // Error/warning dashed border: keep full gap so the border stays visible.
                   marginBottom:
-                    !isConnected ||
-                    isTimeBlocked ||
-                    isTokenLimitExceeded ||
-                    isViewOnlyProvider
-                      ? "1px"
-                      : "-1px",
+                    !isConnected || isTokenLimitExceeded ? "1px" : "-1px",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = "var(--hover-bg)";
@@ -1975,14 +1950,52 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
           .custom-scrollbar::-webkit-scrollbar-corner {
             background: transparent;
           }
+          .zen-message-input[data-empty="true"]::before {
+            content: attr(data-placeholder);
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            pointer-events: none;
+            color: var(--vscode-input-placeholderForeground, rgba(204, 204, 204, 0.5));
+          }
         `}</style>
 
               <textarea
                 ref={textareaRef}
                 value={message}
-                onChange={(e) => {
-                  handleTextareaChange(e);
+                readOnly
+                tabIndex={-1}
+                aria-hidden="true"
+                style={{ display: "none" }}
+              />
+              <div
+                ref={editorRef}
+                contentEditable="plaintext-only"
+                suppressContentEditableWarning
+                role="textbox"
+                aria-multiline="true"
+                data-empty={message === "" ? "true" : "false"}
+                onInput={() => {
+                  syncEditorToMessage();
+                  mention.updateFromSelection();
                 }}
+                onKeyUp={mention.updateFromSelection}
+                onClick={(e) => {
+                  const badgePath = getFileBadgePath(e.target);
+                  if (badgePath) {
+                    extensionService.postMessage({
+                      command: "openFile",
+                      path: badgePath,
+                    });
+                    return;
+                  }
+                  mention.updateFromSelection();
+                }}
+                onBlur={mention.closePopup}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -1991,13 +2004,14 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       isConnected &&
                       !isLoadingCache &&
                       !isProcessing &&
-                      !isTokenLimitExceeded &&
-                      !isTimeBlocked
+                      !isTokenLimitExceeded
                     ) {
                       onSendMessage();
                     }
                   } else {
-                    handleKeyDown(e);
+                    handleKeyDown(
+                      e as unknown as React.KeyboardEvent<HTMLTextAreaElement>,
+                    );
                   }
                 }}
                 onPaste={(e) => {
@@ -2009,7 +2023,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     e.preventDefault();
                     return;
                   }
-                  handlePaste(e);
+                  handlePaste(
+                    e as unknown as React.ClipboardEvent<HTMLTextAreaElement>,
+                  );
                 }}
                 onDragOver={handleDragOver}
                 onDrop={(e) => {
@@ -2024,9 +2040,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   e.target.style.boxShadow = "none";
                 }}
                 className="zen-message-input"
-                placeholder={placeholderText}
-                disabled={isViewOnlyProvider}
-                rows={1}
+                data-placeholder={placeholderText}
                 style={{
                   width: "100%",
                   minHeight: "24px",
@@ -2038,9 +2052,11 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   fontSize: "var(--font-size-sm)",
                   backgroundColor: "transparent",
                   color: "var(--primary-text)",
-                  overflow: "hidden",
+                  overflowX: "hidden",
+                  overflowY: "auto",
+                  position: "relative",
                   whiteSpace: "pre-wrap",
-                  wordWrap: "break-word",
+                  wordBreak: "break-word",
                   opacity: 1,
                   cursor: "text",
                   boxSizing: "border-box",
@@ -2058,10 +2074,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                pointerEvents:
-                  !isConnected || isTimeBlocked || isViewOnlyProvider
-                    ? "none"
-                    : undefined,
+                pointerEvents: !isConnected ? "none" : undefined,
               }}
             >
               {/* Left Icons */}
@@ -2089,7 +2102,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   onSelectImageGenerator={() => {}}
                   onSelectVideoGenerator={() => {}}
                   onSelectDeepResearch={() => {}}
-                  onSelectPullRequest={onGitPullRequest}
+                  onSelectPullRequest={onRequestGitRepoPicker ?? onGitPullRequest}
                   showImageGenerator={supportsImageGenerator}
                   showVideoGenerator={supportsVideoGenerator}
                   showDeepResearch={supportsDeepResearch}
@@ -2336,36 +2349,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   <ClaudeZipBadge state={zipSizeState} />
                 )}
 
-                {/* View Only badge — chiếm chỗ token counter khi isViewOnly */}
-                {isViewOnly && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      padding: "2px 8px",
-                      height: "22px",
-                      boxSizing: "border-box",
-                      borderRadius: "4px",
-                      backgroundColor:
-                        "color-mix(in srgb, #eab308 14%, transparent)",
-                      border:
-                        "1px solid color-mix(in srgb, #eab308 40%, transparent)",
-                      color: "#ca8a04",
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      letterSpacing: "0.04em",
-                      pointerEvents: "none",
-                      userSelect: "none",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    View Only
-                  </div>
-                )}
-
-                {/* Token Count Badge / Stop Button — ẩn khi isViewOnly */}
-                {isConnected && !isViewOnly && (
+                {/* Token Count Badge / Stop Button */}
+                {isConnected && (
                   <div
                     style={{
                       cursor:
@@ -2373,7 +2358,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                           ? "not-allowed"
                           : isStreaming || isProcessing
                             ? "pointer"
-                            : isTokenLimitExceeded || isTimeBlocked
+                            : isTokenLimitExceeded
                               ? "not-allowed"
                               : message.trim() || uploadedFiles.length > 0
                                 ? "pointer"
@@ -2392,13 +2377,13 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                           ? "var(--secondary-text)"
                           : isStreaming || isProcessing
                             ? "var(--vscode-errorForeground, #f44336)"
-                            : isTokenLimitExceeded || isTimeBlocked
+                            : isTokenLimitExceeded
                               ? "var(--vscode-errorForeground, #f44336)"
                               : "var(--vscode-descriptionForeground, #888)",
                       pointerEvents:
                         isHistoryMode ||
                         isLoadingCache ||
-                        ((isTokenLimitExceeded || isTimeBlocked) &&
+                        (isTokenLimitExceeded &&
                           !isStreaming &&
                           !isProcessing)
                           ? "none"
@@ -2407,7 +2392,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       backgroundColor:
                         isStreaming || isProcessing
                           ? "transparent"
-                          : isTokenLimitExceeded || isTimeBlocked
+                          : isTokenLimitExceeded
                             ? "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 12%, transparent)"
                             : "color-mix(in srgb, var(--vscode-descriptionForeground, #888) 8%, transparent)",
                       fontSize: "11px",
@@ -2422,8 +2407,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         return;
                       }
 
-                      if (isTokenLimitExceeded || isTimeBlocked) {
-                        // Don't send when limit exceeded or time-blocked
+                      if (isTokenLimitExceeded) {
+                        // Don't send when limit exceeded
                         return;
                       }
 
@@ -2439,7 +2424,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       if (isStreaming || isProcessing) {
                         e.currentTarget.style.backgroundColor =
                           "var(--hover-bg)";
-                      } else if (isTokenLimitExceeded || isTimeBlocked) {
+                      } else if (isTokenLimitExceeded) {
                         e.currentTarget.style.backgroundColor =
                           "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 18%, transparent)";
                       } else if (message.trim() || uploadedFiles.length > 0) {
@@ -2450,7 +2435,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     onMouseLeave={(e) => {
                       if (isStreaming || isProcessing) {
                         e.currentTarget.style.backgroundColor = "transparent";
-                      } else if (isTokenLimitExceeded || isTimeBlocked) {
+                      } else if (isTokenLimitExceeded) {
                         e.currentTarget.style.backgroundColor =
                           "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 12%, transparent)";
                       } else {
@@ -2461,9 +2446,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     title={
                       isStreaming || isProcessing
                         ? "Stop Generation"
-                        : isTimeBlocked && timeBlockLabel
-                          ? `DeepSeek is blocked during ${timeBlockLabel.all}`
-                          : isTokenLimitExceeded
+                        : isTokenLimitExceeded
                             ? `Token limit exceeded (${messageTokenCount.toLocaleString()}/${maxInputTokens?.toLocaleString()})`
                             : maxInputTokens
                               ? `${messageTokenCount.toLocaleString()}/${maxInputTokens.toLocaleString()} tokens`

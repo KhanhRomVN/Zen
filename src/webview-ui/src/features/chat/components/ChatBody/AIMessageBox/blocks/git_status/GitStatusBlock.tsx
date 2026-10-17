@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import {
+  ChevronDown,
+  ChevronRight,
   Check,
   X,
   Pencil,
@@ -9,7 +11,7 @@ import {
   HelpCircle,
   FolderOpen,
 } from "lucide-react";
-import { getFileIconPath } from "@/utils/fileIconMapper";
+import { getFileIconPath, getFolderIconPath } from "@/utils/fileIconMapper";
 import "./GitStatusBlock.css";
 
 export interface GitStatusItem {
@@ -28,12 +30,68 @@ export interface GitStatusBlockProps {
   isProcessing?: boolean;
 }
 
+interface TreeNode {
+  name: string;
+  path: string;
+  children: Map<string, TreeNode>;
+  item?: GitStatusItem;
+}
+
+const buildTree = (items: GitStatusItem[]): TreeNode => {
+  const root: TreeNode = { name: "", path: "", children: new Map() };
+  for (const item of items) {
+    const parts = item.path.split("/").filter(Boolean);
+    let node = root;
+    parts.forEach((part, i) => {
+      let child = node.children.get(part);
+      if (!child) {
+        child = {
+          name: part,
+          path: parts.slice(0, i + 1).join("/"),
+          children: new Map(),
+        };
+        node.children.set(part, child);
+      }
+      if (i === parts.length - 1) child.item = item;
+      node = child;
+    });
+  }
+  return root;
+};
+
+const compactNode = (node: TreeNode): TreeNode => {
+  let current = node;
+  while (!current.item && current.children.size === 1) {
+    const only = Array.from(current.children.values())[0];
+    if (only.item) break;
+    current = { ...only, name: `${current.name}/${only.name}` };
+  }
+  return current;
+};
+
+const sortNodes = (nodes: TreeNode[]): TreeNode[] =>
+  nodes.sort((a, b) => {
+    const aDir = !a.item;
+    const bDir = !b.item;
+    if (aDir !== bDir) return aDir ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
 const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
   statusItems,
   onConfirm,
   onCancel,
   isProcessing = false,
 }) => {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleDir = (dirPath: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(dirPath)) next.delete(dirPath);
+      else next.add(dirPath);
+      return next;
+    });
+
   const handleRowClick = (path: string) => {
     // Send message to extension to show git diff
     const vscodeApi = (window as any).vscodeApi;
@@ -76,7 +134,7 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
       ? "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)"
       : "var(--vscode-editorWarning-foreground, #d4a72c)";
 
-  const renderItem = (item: GitStatusItem, index: number) => {
+  const renderItem = (item: GitStatusItem, key: string, depth = 0) => {
     const statusColor = getStatusColor(item.status);
     const fileName = item.path.split("/").pop() || item.path;
     const added = item.added || 0;
@@ -85,11 +143,12 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
 
     return (
       <div
-        key={index}
+        key={key}
         className="git-status-item"
         style={{
           borderLeftColor: statusColor,
           cursor: "pointer",
+          paddingLeft: 14 + depth * 14,
         }}
         onClick={() => handleRowClick(item.path)}
         title={`Click để xem git diff của ${item.path}`}
@@ -109,6 +168,39 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
       </div>
     );
   };
+
+  const renderNodes = (parent: TreeNode, depth: number): React.ReactNode =>
+    sortNodes(Array.from(parent.children.values()).map(compactNode)).map(
+      (node) => {
+        if (node.item) return renderItem(node.item, node.path, depth);
+        const isCollapsed = collapsed.has(node.path);
+        return (
+          <React.Fragment key={node.path}>
+            <div
+              className="git-status-item"
+              style={{ paddingLeft: 14 + depth * 14 }}
+              onClick={() => toggleDir(node.path)}
+            >
+              {isCollapsed ? (
+                <ChevronRight size={14} style={{ flexShrink: 0 }} />
+              ) : (
+                <ChevronDown size={14} style={{ flexShrink: 0 }} />
+              )}
+              <img
+                src={getFolderIconPath(
+                  node.name.split("/").pop(),
+                  !isCollapsed,
+                )}
+                alt=""
+                style={{ width: 16, height: 16, flexShrink: 0 }}
+              />
+              <span className="git-status-path">{node.name}</span>
+            </div>
+            {!isCollapsed && renderNodes(node, depth + 1)}
+          </React.Fragment>
+        );
+      },
+    );
 
   return (
     <div className="git-status-block">
@@ -224,7 +316,7 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
         {stagedItems.length > 0 && (
           <div className="git-status-section">
             <div className="git-status-section-title">Staged Changes</div>
-            {stagedItems.map((item, index) => renderItem(item, index))}
+            {renderNodes(buildTree(stagedItems), 0)}
           </div>
         )}
       </div>
@@ -249,7 +341,8 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
               stagedItems.length === 0
                 ? "var(--vscode-descriptionForeground, #8c8c8c)"
                 : buttonColor,
-            border: `1px solid color-mix(in srgb, ${stagedItems.length === 0 ? "var(--vscode-descriptionForeground, #8c8c8c)" : buttonColor} 30%, transparent)`,
+            border: "none",
+            outline: "none",
             cursor: stagedItems.length === 0 ? "not-allowed" : "pointer",
             opacity: stagedItems.length === 0 ? 0.5 : 1,
           }}
@@ -265,7 +358,7 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
           }}
         >
           <Check size={14} strokeWidth={2.5} />
-          <span>{isProcessing ? "Processing" : "Create Commit Message"}</span>
+          <span>{isProcessing ? "Processing" : "Confirm"}</span>
         </button>
         <button
           className="git-status-btn git-status-btn-cancel"
@@ -276,7 +369,8 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
           style={{
             background: `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`,
             color: "var(--vscode-errorForeground, #ff4d4d)",
-            border: `1px solid color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 30%, transparent)`,
+            border: "none",
+            outline: "none",
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 25%, transparent)`;
