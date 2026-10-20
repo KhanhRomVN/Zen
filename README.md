@@ -279,7 +279,7 @@ Run npm test and fix any failing tests
 
 ### Adding files to context
 
-Right-click any file in Explorer → **Add to Zen Context** to attach it to your next message without typing the path.
+Right-click any file in Explorer → **Add to Zen** to attach it to your next message without typing the path.
 
 ### Checkpoint & diff
 

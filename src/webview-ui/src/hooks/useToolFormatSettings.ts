@@ -28,12 +28,12 @@ const loadToolFormat = (
   try {
     const key = storageKey(providerId, modelId);
     const raw = localStorage.getItem(key);
-    const result: "xml" | "json" = raw === "json" ? "json" : "xml";
+    const result: "xml" | "json" = raw === "xml" ? "xml" : "json";
     return result;
   } catch (e) {
     console.warn("[ToolFormat] load failed:", e);
   }
-  return "xml";
+  return "json";
 };
 
 const saveToolFormat = (
@@ -66,7 +66,7 @@ export function useToolFormatSettings(
     if (providerId && modelId) {
       return loadToolFormat(providerId, modelId);
     }
-    return "xml";
+    return "json";
   });
 
   // Track model key để detect khi model thực sự thay đổi
@@ -84,7 +84,7 @@ export function useToolFormatSettings(
       const loaded = loadToolFormat(providerId, modelId);
       setToolFormatState(loaded);
     } else {
-      setToolFormatState("xml");
+      setToolFormatState("json");
     }
   }, [providerId, modelId]);
 

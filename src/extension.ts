@@ -100,22 +100,25 @@ export async function activate(extContext: vscode.ExtensionContext) {
 
   const addToContextCommand = vscode.commands.registerCommand(
     "zen.addToContext",
-    async (uri: vscode.Uri, uris?: vscode.Uri[]) => {
-      const selectedUris = uris && uris.length > 0 ? uris : [uri];
+    async (uri?: vscode.Uri, uris?: vscode.Uri[]) => {
+      const activeUri = vscode.window.activeTextEditor?.document.uri;
+      const selectedUris =
+        uris && uris.length > 0 ? uris : uri ? [uri] : activeUri ? [activeUri] : [];
+      const items: { path: string; type: "file" | "folder" }[] = [];
       for (const selectedUri of selectedUris) {
         try {
-          await vscode.workspace.fs.stat(selectedUri);
-          provider.postMessageToWebview({
-            command: "addAttachedItem",
-            uri: selectedUri.fsPath,
-            itemType: "file",
+          const stat = await vscode.workspace.fs.stat(selectedUri);
+          items.push({
+            path: vscode.workspace
+              .asRelativePath(selectedUri, false)
+              .replace(/\\/g, "/"),
+            type:
+              stat.type & vscode.FileType.Directory ? "folder" : "file",
           });
-        } catch (e) {
-          provider.postMessageToWebview({
-            command: "addAttachedItem",
-            uri: selectedUri.fsPath,
-          });
-        }
+        } catch (e) {}
+      }
+      if (items.length > 0) {
+        provider.postMessageToWebview({ command: "addMention", items });
       }
     },
   );

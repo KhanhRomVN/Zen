@@ -425,4 +425,5 @@ const HomeBanner: React.FC<HomeBannerProps> = ({
   );
 };
 
+export { Banner, styles as bannerStyles, AccountIcon as BannerAccountIcon };
 export default HomeBanner;

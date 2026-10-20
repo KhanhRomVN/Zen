@@ -88,10 +88,6 @@ interface ChatFooterProps {
   /** Tool format cho conversation này */
   conversationToolFormat?: "xml" | "json";
   onConversationToolFormatToggle?: () => void;
-  /** Trạng thái overlay GAME. */
-  isGameOpen?: boolean;
-  /** Toggle overlay GAME. */
-  onToggleGame?: () => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────
@@ -148,8 +144,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   onSelectSkills,
   conversationToolFormat,
   onConversationToolFormatToggle,
-  isGameOpen,
-  onToggleGame,
 }) => {
   // ── Refs ──
   const renderCountRef = React.useRef(0);
@@ -274,8 +268,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
             onSelectSkills={onSelectSkills}
             conversationToolFormat={conversationToolFormat}
             onConversationToolFormatToggle={onConversationToolFormatToggle}
-            isGameOpen={isGameOpen}
-            onToggleGame={onToggleGame}
           />
         </div>
       </div>

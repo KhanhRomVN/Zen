@@ -79,7 +79,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onClearInitialData,
 }) => {
   // Per-conversation overrides restored from saved metadata
-  const [isGameOpen, setIsGameOpen] = useState(false);
+  
 
   const [restoredConversationOverrides, setRestoredConversationOverrides] =
     useState<
@@ -1170,8 +1170,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         dangerousCommands={dangerousCommands}
         onProceedDangerousCommand={proceedDangerousCommand}
         onCancelDangerousCommand={cancelDangerousCommand}
-        isGameOpen={isGameOpen}
-        onCloseGame={() => setIsGameOpen(false)}
+
       />
       {/* ─── ChatFooter ─── */}
       <ChatFooter
@@ -1231,8 +1230,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }}
         conversationToolFormat={conversationToolFormat}
         onConversationToolFormatToggle={handleToolFormatToggle}
-        isGameOpen={isGameOpen}
-        onToggleGame={() => setIsGameOpen((v) => !v)}
+
       />
       <GitRepoPickerDrawer
         isOpen={gitRepoPickerOpen}

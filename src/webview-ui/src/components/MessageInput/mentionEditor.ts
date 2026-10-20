@@ -81,7 +81,22 @@ const buildToken = (item: MentionItem): string =>
 const getBaseName = (itemPath: string): string =>
   itemPath.slice(itemPath.lastIndexOf("/") + 1);
 
-const createBadgeElement = (item: MentionItem): HTMLSpanElement => {
+const REMOVE_ATTR = "data-mention-remove";
+const STYLE_ID = "zen-mention-badge-style";
+
+const ensureBadgeStyle = (): void => {
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = STYLE_ID;
+  style.textContent = [
+    `[${BADGE_PATH_ATTR}] .zen-mention-remove{display:none;align-items:center;justify-content:center;cursor:pointer;opacity:.8}`,
+    `[${BADGE_PATH_ATTR}]:hover .zen-mention-remove{display:inline-flex}`,
+    `[${BADGE_PATH_ATTR}] .zen-mention-remove:hover{color:var(--error-color);opacity:1}`,
+  ].join("\n");
+  document.head.appendChild(style);
+};
+
+const createBaseBadge = (item: MentionItem): HTMLSpanElement => {
   const name = getBaseName(item.path);
   const badge = document.createElement("span");
   badge.contentEditable = "false";
@@ -108,6 +123,7 @@ const createBadgeElement = (item: MentionItem): HTMLSpanElement => {
 
 export const getFileBadgePath = (target: EventTarget | null): string | null => {
   if (!(target instanceof Element)) return null;
+  if (target.closest(`[${REMOVE_ATTR}]`)) return null;
   const badge = target.closest(`[${BADGE_TYPE_ATTR}="file"]`);
   const badgePath = badge?.getAttribute(BADGE_PATH_ATTR);
   return badgePath ? formatMentionPath(badgePath) : null;
@@ -199,6 +215,85 @@ export const getMentionContext = (root: HTMLElement): MentionContext | null => {
     end,
     query: match[2],
   };
+};
+
+function createBadgeElement(item: MentionItem): HTMLSpanElement {
+  ensureBadgeStyle();
+  const badge = createBaseBadge(item);
+  const remove = document.createElement("span");
+  remove.setAttribute(REMOVE_ATTR, "");
+  remove.className = "zen-mention-remove";
+  remove.contentEditable = "false";
+  remove.innerHTML =
+    '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg>';
+  badge.appendChild(remove);
+  return badge;
+}
+
+export const removeMentionBadge = (target: EventTarget | null): boolean => {
+  if (!(target instanceof Element)) return false;
+  const badge = target
+    .closest(`[${REMOVE_ATTR}]`)
+    ?.closest(`[${BADGE_PATH_ATTR}]`);
+  if (!badge) return false;
+  const range = document.createRange();
+  range.selectNode(badge);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  if (!document.execCommand("delete")) badge.remove();
+  return true;
+};
+
+export const insertBadgesAtCaret = (
+  root: HTMLElement,
+  items: MentionItem[],
+): Node[] => {
+  const seen = new Set(
+    Array.from(root.querySelectorAll(`[${BADGE_PATH_ATTR}]`)).map(
+      (el) => `${el.getAttribute(BADGE_TYPE_ATTR)}:${el.getAttribute(BADGE_PATH_ATTR)}`,
+    ),
+  );
+  const fresh = items.filter((item) => {
+    const key = `${item.type}:${item.path}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (fresh.length === 0) return [];
+
+  root.focus();
+  const selection = window.getSelection();
+  const range =
+    selection && selection.rangeCount > 0 && root.contains(selection.anchorNode)
+      ? selection.getRangeAt(0)
+      : document.createRange();
+  if (!root.contains(range.startContainer)) {
+    range.selectNodeContents(root);
+    range.collapse(false);
+  }
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+
+  const fragment = document.createDocumentFragment();
+  const inserted: Node[] = [];
+  let lastSpace: Text | null = null;
+  for (const item of fresh) {
+    const badge = createBadgeElement(item);
+    lastSpace = document.createTextNode(" ");
+    fragment.append(badge, lastSpace);
+    inserted.push(badge, lastSpace);
+  }
+  range.deleteContents();
+  range.insertNode(fragment);
+  if (lastSpace) {
+    const caret = document.createRange();
+    caret.setStart(lastSpace, 1);
+    caret.collapse(true);
+    selection?.removeAllRanges();
+    selection?.addRange(caret);
+  }
+  return inserted;
 };
 
 export const insertBadgeAt = (

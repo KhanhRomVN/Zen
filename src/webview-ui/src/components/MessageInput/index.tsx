@@ -557,8 +557,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     onConversationUseSkillToggle,
     onConversationMemoryToggle,
     onConversationToolFormatToggle,
-    isGameOpen = false,
-    onToggleGame,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
     const renderCountRef = React.useRef(0);
@@ -1977,34 +1975,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   />
                 )}
 
-                {isConversationStarted && onToggleGame && (
-                  <button
-                    onClick={onToggleGame}
-                    title={isGameOpen ? "Đóng GAME" : "Mở GAME"}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: "22px",
-                      padding: "0 8px",
-                      boxSizing: "border-box",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      letterSpacing: "0.5px",
-                      border: "1px solid rgba(128, 128, 128, 0.2)",
-                      background: isGameOpen
-                        ? "rgba(128, 128, 128, 0.28)"
-                        : "rgba(128, 128, 128, 0.12)",
-                      color: "var(--vscode-foreground)",
-                      opacity: isGameOpen ? 1 : 0.75,
-                      transition: "all 0.15s ease-in-out",
-                    }}
-                  >
-                    GAME
-                  </button>
-                )}
 
                 <div
                   style={{

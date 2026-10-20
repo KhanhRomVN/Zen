@@ -110,10 +110,6 @@ export interface MessageInputProps {
   onConversationMemoryToggle?: () => void;
   /** Callback khi toggle tool format thay đổi */
   onConversationToolFormatToggle?: () => void;
-  /** Trạng thái overlay GAME đang mở (chỉ ở chat view). */
-  isGameOpen?: boolean;
-  /** Toggle overlay GAME. */
-  onToggleGame?: () => void;
 }
 
 export interface ToggleButtonProps {

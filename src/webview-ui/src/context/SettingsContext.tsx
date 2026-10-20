@@ -97,7 +97,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
           return saved;
         }
       } catch (e) {}
-      return "none";
+      return "medium";
     });
   // Backend (SQLite) là nguồn chân lý duy nhất → không cache ở localStorage.
   const [chromiumProfileDir, setChromiumProfileDirState] =
@@ -139,10 +139,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     loadBool("zen_show_metadata_bar", true),
   );
   const [useSkillEnabled, setUseSkillEnabledState] = useState<boolean>(() =>
-    loadBool(workspaceKey("zen_use_skill_enabled"), false),
+    loadBool(workspaceKey("zen_use_skill_enabled"), true),
   );
   const [memoryEnabled, setMemoryEnabledState] = useState<boolean>(() =>
-    loadBool("zen_memory_enabled", false),
+    loadBool("zen_memory_enabled", true),
   );
 
 
