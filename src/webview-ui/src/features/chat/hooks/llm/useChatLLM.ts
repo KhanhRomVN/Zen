@@ -186,7 +186,6 @@ export const useChatLLM = ({
   // Get context values
   const {
     aiLanguage,
-    permissionMode,
     systemPromptMode,
     promptLengthMode,
     useSkillEnabled,
@@ -448,7 +447,6 @@ export const useChatLLM = ({
         isReq1,
         skipFirstRequestLogic: skipFirstRequestLogic || false,
         aiLanguage,
-        permissionMode,
         treeView,
         files,
         userRequestCount: userRequestCountRef.current,
@@ -625,7 +623,6 @@ export const useChatLLM = ({
           ? files.filter(
               (f: any) =>
                 !f.id?.startsWith("attached-") &&
-                !f.id?.startsWith("rule-") &&
                 !f.id?.startsWith("skill-") &&
                 !f.id?.startsWith("terminal-") &&
                 !f.id?.startsWith("snippet-") && // 🚀 FIX: Don't upload text snippets
@@ -1291,7 +1288,6 @@ export const useChatLLM = ({
       apiUrl,
       selectedTab,
       aiLanguage,
-      permissionMode,
       treeView,
       uploadFiles,
       setIsProcessingSync,

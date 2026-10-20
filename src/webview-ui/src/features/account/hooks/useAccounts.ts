@@ -80,8 +80,8 @@ export const useAccounts = (isOpen: boolean) => {
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // ── Store ──
-  const { apiUrl, activeDatabaseManagerId } = useSettings();
+  // ── Store ─
+  const { apiUrl } = useSettings();
 
   // ── Callbacks ──
   const callBackend = useCallback(
@@ -90,9 +90,6 @@ export const useAccounts = (isOpen: boolean) => {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (activeDatabaseManagerId) {
-        headers["x-database-manager-id"] = activeDatabaseManagerId;
-      }
       const options: RequestInit = {
         method,
         headers,
@@ -102,7 +99,7 @@ export const useAccounts = (isOpen: boolean) => {
       const response = await fetch(url, options);
       return response.json();
     },
-    [apiUrl, activeDatabaseManagerId],
+    [apiUrl],
   );
 
   const fetchAccounts = useCallback(
@@ -245,14 +242,12 @@ export const useAccounts = (isOpen: boolean) => {
   // ── Effects ──
   useEffect(() => {
     if (isOpen) {
-      // Reset về trang 1 + ép refetch providers mỗi khi panel mở HOẶC đổi
-      // database (tránh hiện account/provider của database trước đó).
+      // Reset về trang 1 + ép refetch providers mỗi khi panel mở.
       setPagination((prev) => ({ ...prev, page: 1 }));
       fetchAccounts(1, pagination.limit, false, true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, activeDatabaseManagerId]);
-
+  }, [isOpen]);
   // searchQuery được filter client-side → không cần re-fetch khi gõ
   useEffect(() => {
     if (isOpen) {

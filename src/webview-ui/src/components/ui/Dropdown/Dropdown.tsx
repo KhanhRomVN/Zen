@@ -58,12 +58,14 @@ export function Dropdown({
     left: 0,
   });
   const [contextMenuPosition, setContextMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [triggerWidth, setTriggerWidth] = useState<number | undefined>(undefined);
 
   // Calculate position for fixed strategy
   const calculateFixedPosition = (): Position | null => {
     if (!triggerRef.current || !contentRef.current) return null;
 
     const triggerRect = triggerRef.current.getBoundingClientRect();
+    setTriggerWidth(triggerRect.width);
     const contentRect = contentRef.current.getBoundingClientRect();
     const viewport = {
       width: window.innerWidth,
@@ -357,7 +359,7 @@ export function Dropdown({
                     top: position.top,
                     left: position.left,
                     ...(minWidth === "trigger"
-                      ? { width: triggerRef.current?.getBoundingClientRect().width ?? "auto" }
+                      ? { width: triggerWidth ?? triggerRef.current?.getBoundingClientRect().width ?? "auto", boxSizing: "border-box" }
                       : { minWidth }),
                     opacity: 1,
                     transition: "opacity 0.15s ease",

@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import { Message } from "../../types/message";
-import { useSettings } from "@/context/SettingsContext";
 
 interface UseMessageActionsProps {
   messages: Message[];
@@ -26,7 +25,6 @@ export function useMessageActions({
   onSendMessage,
   onRevertConversation,
 }: UseMessageActionsProps) {
-  const { permissionMode } = useSettings();
 
   /**
    * Regenerate a user message: revert to this message (removes it + everything
@@ -56,15 +54,6 @@ export function useMessageActions({
         shouldSkipLogic = true;
       }
 
-      // Replace old permission mode with current mode
-      const permissionModePattern =
-        /<permission-mode>Active:\s*(approval|full-access|fullAccess)<\/permission-mode>/;
-      if (!shouldSkipLogic && permissionModePattern.test(contentToSend)) {
-        contentToSend = contentToSend.replace(
-          permissionModePattern,
-          `<permission-mode>Active: ${permissionMode}</permission-mode>`,
-        );
-      }
 
       // If we have Qwen provider fid + parentId, use edit flow (no revert needed —
       // Qwen will overwrite the message and delete children on the server side).
@@ -100,7 +89,7 @@ export function useMessageActions({
         );
       }, 100);
     },
-    [messages, onRevertConversation, onSendMessage, permissionMode],
+    [messages, onRevertConversation, onSendMessage],
   );
 
   /**
@@ -115,16 +104,7 @@ export function useMessageActions({
       if (userMsg.role !== "user") return;
       if (!onSendMessage) return;
 
-      // Replace permission mode in rawRequest template, then swap user-message content
       let rawTemplate = userMsg.rawRequest || "";
-      const permissionModePattern =
-        /<permission-mode>Active:\s*(approval|full-access|fullAccess)<\/permission-mode>/;
-      if (permissionModePattern.test(rawTemplate)) {
-        rawTemplate = rawTemplate.replace(
-          permissionModePattern,
-          `<permission-mode>Active: ${permissionMode}</permission-mode>`,
-        );
-      }
 
       // Determine skipLogic: if rawRequest has user-message wrapper, use full pipeline
       const hasWrapper = /<user-message>/.test(rawTemplate);
@@ -193,7 +173,7 @@ export function useMessageActions({
         );
       }, 100);
     },
-    [messages, onRevertConversation, onSendMessage, permissionMode],
+    [messages, onRevertConversation, onSendMessage],
   );
 
   /**
@@ -225,15 +205,6 @@ export function useMessageActions({
         setTimeout(() => {
           let rawReq = prevUserMsg!.rawRequest || "";
 
-          // Replace old permission mode with current mode
-          const permissionModePattern =
-            /<permission-mode>Active:\s*(approval|full-access|fullAccess)<\/permission-mode>/;
-          if (permissionModePattern.test(rawReq)) {
-            rawReq = rawReq.replace(
-              permissionModePattern,
-              `<permission-mode>Active: ${permissionMode}</permission-mode>`,
-            );
-          }
 
           // Extract original content from formatted rawRequest
           const userContentMatch = rawReq.match(
@@ -260,7 +231,7 @@ export function useMessageActions({
         }, 100);
       }
     },
-    [messages, onRevertConversation, onSendMessage, permissionMode],
+    [messages, onRevertConversation, onSendMessage],
   );
 
   return { handleRegenerateRequest, handleEditRequest, handleRetryRequest };

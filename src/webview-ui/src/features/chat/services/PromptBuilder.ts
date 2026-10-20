@@ -13,7 +13,6 @@ export interface PromptBuilderOptions {
   isReq1: boolean;
   skipFirstRequestLogic: boolean;
   aiLanguage: string;
-  permissionMode: string;
   treeView: string;
   files?: any[];
   userRequestCount: number;
@@ -40,7 +39,6 @@ export class PromptBuilder {
       isReq1,
       skipFirstRequestLogic,
       aiLanguage,
-      permissionMode,
       treeView,
       files,
       systemPromptMode,
@@ -60,7 +58,6 @@ export class PromptBuilder {
     if (isReq1) {
       systemPrompt = await this.buildSystemPrompt(
         aiLanguage,
-        permissionMode,
         treeView,
         systemPromptMode,
         promptLengthMode,
@@ -121,7 +118,6 @@ export class PromptBuilder {
 
   private static async buildSystemPrompt(
     aiLanguage: string,
-    permissionMode: string,
     treeView: string,
     systemPromptMode?: SystemPromptMode,
     promptLengthMode?: PromptLengthMode,
@@ -219,7 +215,8 @@ export class PromptBuilder {
   private static async buildMemorySection(): Promise<string> {
     try {
       const content = await extensionService.getMemorySnapshot();
-      if (!content || content.trim().length === 0) return "";
+      if (!content || content.trim().length === 0)
+        return "\n\n# Memory\n(Memory đang BẬT nhưng hiện đang rỗng. Hãy ghi các sở thích/quy ước bền vững xuyên-project vào đây bằng update_memory với old_content rỗng.)";
       return `\n\n# Memory\n${content}`;
     } catch (e) {
       console.warn("[PromptBuilder] Failed to load memory snapshot:", e);
@@ -231,11 +228,9 @@ export class PromptBuilder {
     const attachedItems = files.filter(
       (f: any) =>
         f.id?.startsWith("attached-") ||
-        f.id?.startsWith("rule-") ||
         f.id?.startsWith("terminal-") ||
         f.id?.startsWith("snippet-") || // 🚀 NEW: Support text snippets
-        f.id?.startsWith("external-") || // 🚀 NEW: Support external files
-        f.type === "rule",
+        f.id?.startsWith("external-"), // 🚀 NEW: Support external files
     );
 
     if (attachedItems.length === 0) return "";
@@ -252,7 +247,7 @@ export class PromptBuilder {
     const externalItems = attachedItems.filter(
       (f: any) => f.type === "external",
     ); // 🚀 NEW
-    const ruleItems = attachedItems.filter((f: any) => f.type === "rule");
+
 
     if (fileItems.length > 0) {
       attachedContextStr += "\n### Files\n";
@@ -284,11 +279,6 @@ export class PromptBuilder {
       });
     }
 
-    // Rule do người dùng chọn đính kèm — phải tuân theo trong suốt phiên làm việc.
-    if (ruleItems.length > 0) {
-      attachedContextStr += "\n### Rule\n";
-      attachedContextStr += `You must strictly follow this rule (\"${ruleItems[0].path}\") for the rest of this conversation:\n\`\`\`\n${ruleItems[0].content || ""}\n\`\`\`\n`;
-    }
 
     return attachedContextStr;
   }

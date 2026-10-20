@@ -32,9 +32,7 @@ export class AccountImportExportHandler {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (message.databaseManagerId) {
-        headers["x-database-manager-id"] = message.databaseManagerId;
-      }
+      // Removed x-database-manager-id header as multi-DB support is deprecated
       return headers;
     };
 
@@ -131,13 +129,13 @@ export class AccountImportExportHandler {
     message: any,
     webviewView: vscode.WebviewView,
   ) {
-    const { apiUrl, databaseManagerId, selectedAccounts, requestId } = message;
+    const { apiUrl, selectedAccounts, requestId } = message;
     if (!apiUrl || !Array.isArray(selectedAccounts)) return;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (databaseManagerId) headers["x-database-manager-id"] = databaseManagerId;
+    // Removed x-database-manager-id header as multi-DB support is deprecated
 
     try {
       const response = await fetch(`${apiUrl}/v1/accounts/import`, {

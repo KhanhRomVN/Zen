@@ -114,7 +114,7 @@ export class MemoryHandler {
       const newContent: string = message.new_content ?? "";
 
       let current = this.readMemoryContent(filePath);
-      const isFirstInit = !fs.existsSync(filePath) && current.length === 0;
+      const isFirstInit = current.trim().length === 0;
 
       // Trường hợp khởi tạo lần đầu: file chưa có hoặc rỗng.
       // Cho phép old_content rỗng + new_content bất kỳ (kể cả rỗng).

@@ -16,11 +16,4 @@ export interface ExternalFile {
   size: number;
 }
 
-/** A user-defined rule injected into the system prompt. */
-export interface Rule {
-  id: string;
-  name: string;
-  content: string;
-  createdAt: number;
-  updatedAt: number;
-}
+

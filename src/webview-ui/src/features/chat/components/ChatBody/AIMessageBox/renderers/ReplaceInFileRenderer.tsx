@@ -1,7 +1,6 @@
 import React from "react";
 
 // HOOKS
-import { useSettings } from "@/context/SettingsContext";
 
 // SERVICES
 import { extensionService } from "@/services/ExtensionService";
@@ -23,7 +22,6 @@ import {
   collectConvFilePaths,
   getNextUserMessage,
 } from "../../../../utils/renderer-utils";
-import { getPermissionDecision } from "@/features/chat/utils/permissionUtils";
 import { parseDiff, DiffHighlight } from "@/utils/diffUtils";
 
 // ICONS
@@ -31,7 +29,6 @@ import { getFileIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
-import ActionBar from "../ActionBar";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import { CodeBlock } from "../blocks/code/CodeBlock";
 
@@ -90,7 +87,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
   const [cachedDiagnostics, setCachedDiagnostics] = React.useState<
     Diagnostic[] | null
   >(null);
-  const { permissionMode } = useSettings();
 
   const actionId = `${messageId}-action-${actionIndex}`;
   const rawPath = action.params.file_path || action.params.path || "";
@@ -281,147 +277,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
 
   // Check if action has been rejected (to hide error UI after rejection)
   const isRejected = rejectedActions?.has(actionId);
-
-  // Debug logs
-  const permissionDecision = getPermissionDecision(
-    permissionMode,
-    "replace_in_file",
-  );
-
-  // Fetch full file content for approval mode
-  const [fullFileContent, setFullFileContent] = React.useState<string | null>(
-    null,
-  );
-
-  React.useEffect(() => {
-    if (permissionDecision !== "confirm" || !rawPath) {
-      return;
-    }
-
-    const requestId = `file-content-${actionId}`;
-    const handleMessage = (event: MessageEvent) => {
-      const msg = event.data;
-      if (
-        msg.command === "getFileContentResult" &&
-        msg.requestId === requestId
-      ) {
-        setFullFileContent(msg.content || null);
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-
-    extensionService.postMessage({
-      command: "getFileContent",
-      path: rawPath,
-      requestId,
-    });
-
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, [permissionDecision, rawPath, actionId]);
-
-  // Build diff preview data for approval mode
-  const approvalDiffData = React.useMemo(() => {
-    if (permissionDecision !== "confirm") return null;
-
-    // Calculate line highlights based on old/new content.
-    // Use ?? so an intentional empty string ("") is preserved (deletion case).
-    const oldContent = action.params.old_content ?? action.params.old_str;
-    const newContent = action.params.new_content ?? action.params.new_str;
-
-    if (oldContent === undefined || newContent === undefined) return null;
-
-    // If we have full file content, show it with highlights
-    if (fullFileContent) {
-      // Find where old content appears in the file
-      const fileLines = fullFileContent.split("\n");
-      const oldLines = String(oldContent).trim().split("\n");
-      const newLines = String(newContent).trim().split("\n");
-
-      let startLineIndex = -1;
-
-      // Try exact match first
-      for (let i = 0; i <= fileLines.length - oldLines.length; i++) {
-        let matches = true;
-        for (let j = 0; j < oldLines.length; j++) {
-          if (fileLines[i + j].trim() !== oldLines[j].trim()) {
-            matches = false;
-            break;
-          }
-        }
-        if (matches) {
-          startLineIndex = i;
-          break;
-        }
-      }
-
-      if (startLineIndex !== -1) {
-        // Build new file content with both old and new lines for diff view
-        const beforeLines = fileLines.slice(0, startLineIndex);
-        const afterLines = fileLines.slice(startLineIndex + oldLines.length);
-
-        // Merge: show old lines (removed) + new lines (added)
-        const mergedLines = [
-          ...beforeLines,
-          ...oldLines,
-          ...newLines,
-          ...afterLines,
-        ];
-        const mergedContent = mergedLines.join("\n");
-
-        // Build line highlights
-        const lineHighlights: DiffHighlight[] = [];
-
-        // Mark old lines as removed
-        for (let i = 0; i < oldLines.length; i++) {
-          lineHighlights.push({
-            type: "removed",
-            startLine: beforeLines.length + i + 1, // 1-based
-            endLine: beforeLines.length + i + 1,
-          });
-        }
-
-        // Mark new lines as added (after old lines)
-        for (let i = 0; i < newLines.length; i++) {
-          lineHighlights.push({
-            type: "added",
-            startLine: beforeLines.length + oldLines.length + i + 1, // 1-based
-            endLine: beforeLines.length + oldLines.length + i + 1,
-          });
-        }
-
-        return {
-          code: mergedContent,
-          lineHighlights,
-        };
-      } else {
-        console.warn(
-          "[ReplaceInFileRenderer] Old content not found in file, falling back to diff view",
-        );
-      }
-    }
-
-    // Fallback: show old/new content directly if full file not available
-    const diffText =
-      action.params.diff ||
-      `<<<<<<< SEARCH\n${oldContent}\n=======\n${newContent}\n>>>>>>> REPLACE`;
-    const parsed = parseDiff(diffText);
-
-    return {
-      code: parsed.code,
-      lineHighlights: parsed.lineHighlights,
-    };
-  }, [
-    permissionDecision,
-    fullFileContent,
-    action.params.old_content,
-    action.params.old_str,
-    action.params.new_content,
-    action.params.new_str,
-    action.params.diff,
-  ]);
 
   return (
     <div
@@ -614,21 +469,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
         }}
       />
 
-      {/* Show diff in CodeBlock when approval mode — only when not completed */}
-      {!isCompleted && approvalDiffData && (
-        <CodeBlock
-          code={approvalDiffData.code}
-          language={getLanguageFromPath(rawPath)}
-          lineHighlights={
-            approvalDiffData.lineHighlights.length > 0
-              ? approvalDiffData.lineHighlights
-              : undefined
-          }
-          autoScrollToDiff={true}
-          maxHeight="400px"
-          hideHeader={true}
-        />
-      )}
 
       {/* Show error message when there's an error */}
       {!isPartial && (hasValidationError || isError) && !isRejected && (
@@ -671,22 +511,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
         </div>
       )}
 
-      {!shouldHideContent &&
-        !isCompleted &&
-        !isPartial &&
-        getPermissionDecision(permissionMode, "replace_in_file") ===
-          "confirm" && (
-          <ActionBar
-            action={action}
-            messageId={messageId}
-            actionIndex={actionIndex}
-            hasError={hasValidationError || isError}
-            isCompleted={isCompleted}
-            onAction={(e, type) => {
-              onToolClick(action, messageId, actionIndex, type);
-            }}
-          />
-        )}
     </div>
   );
 };

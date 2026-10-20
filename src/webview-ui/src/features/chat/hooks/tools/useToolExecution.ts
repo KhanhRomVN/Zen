@@ -3,12 +3,10 @@ import {
   useRef,
   useCallback,
   useEffect,
-  useLayoutEffect,
 } from "react";
 import { Message } from "../../types/message";
 
 import { parseAIResponse } from "../../services/ResponseParser";
-import { useSettings } from "../../../../context/SettingsContext";
 export { getPermissionDecision } from "../../utils/permissionUtils";
 import { getPermissionDecision } from "../../utils/permissionUtils";
 import { isQuestionFullyAnswered } from "../../utils/questionUtils";
@@ -23,7 +21,6 @@ import {
   EXECUTION_STATUS,
   TERMINAL_STATUS,
 } from "../../constants/constants";
-import type { PermissionMode } from "../../types/tag-types";
 import { getExecutor } from "../../services/tool-executors";
 import type {
   ExecutorContext,
@@ -58,13 +55,6 @@ export const useToolExecution = ({
   toolFormat = "xml",
   getMaxInputTokens,
 }: UseToolExecutionProps) => {
-  const { permissionMode } = useSettings();
-  const permissionModeRef = useRef<PermissionMode>(permissionMode);
-
-  useLayoutEffect(() => {
-    permissionModeRef.current = permissionMode;
-  }, [permissionMode]);
-
   const [executionState, setExecutionState] = useState<{
     total: number;
     completed: number;
@@ -359,7 +349,6 @@ export const useToolExecution = ({
       conversationToolOverrides: Record<string, "auto"> = {},
       actionType?: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
     ) => {
-      const currentPermissionMode = permissionModeRef.current;
       const responseNumber =
         message.role === "assistant"
           ? (messagesRef?.current?.filter(
@@ -425,34 +414,10 @@ export const useToolExecution = ({
           }
         }
 
-        const decision = getPermissionDecision(
-          currentPermissionMode,
-          action.type,
-        );
+        const decision = getPermissionDecision(action.type);
         const isConversationAuto =
           conversationToolOverrides[action.type] === "auto";
 
-        // [ANTI-INJECTION OVERRIDE] Bypass manual confirmation pauses for
-        // auto-triggered executions on anti-injection providers (e.g. Claude).
-        // Tools run silently in background — flag persisted per-message at send time.
-        const isAntiInjectionMsg = !!message.antiSystemPromptInjection;
-
-        let shouldPauseForManual =
-          decision === "confirm" && !isConversationAuto;
-
-        if (isAntiInjectionMsg && isAutoTrigger) {
-          shouldPauseForManual = false;
-        }
-
-        if (shouldPauseForManual && !isAlreadyClicked && isAutoTrigger) {
-          wasInterruptedByManual = true;
-          setExecutionState({
-            total: actions.length,
-            completed: index,
-            status: "idle",
-          });
-          break;
-        }
 
         // Add to ref immediately (prevents re-execution of same action)
         // State update (setClickedActions) is deferred until after result is available
@@ -482,7 +447,7 @@ export const useToolExecution = ({
           });
           window.postMessage({ command: "markActionRejected", actionId }, "*");
         } else if (decision === TOOL_ACTION_TYPES.REJECT) {
-          result = `Output: [${action.type}] Tool execution blocked by permission policy (${permissionModeRef.current}).`;
+          result = `Output: [${action.type}] Tool execution blocked by permission policy.`;
         } else {
           result = await executeSingleAction(
             { ...action, actionId, responseNumber },

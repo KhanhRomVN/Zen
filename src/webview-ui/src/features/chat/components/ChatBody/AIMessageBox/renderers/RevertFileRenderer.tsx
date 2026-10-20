@@ -1,7 +1,6 @@
 import React from "react";
 
 // HOOKS
-import { useSettings } from "@/context/SettingsContext";
 
 // CONSTANTS
 import { getToolLabel } from "@/features/chat/constants/constants";
@@ -19,14 +18,12 @@ import {
 
 // UTILS
 import { calculateLineDiff, parseDiff, DiffHighlight } from "@/utils/diffUtils";
-import { getPermissionDecision } from "@/features/chat/utils/permissionUtils";
 
 // ICONS
 import { getFileIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
-import ActionBar from "../ActionBar";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import { CodeBlock } from "../blocks/code/CodeBlock";
 
@@ -51,7 +48,6 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
   onToolClick,
   conversationId,
 }) => {
-  const { permissionMode } = useSettings();
   const actionId = `${messageId}-action-${actionIndex}`;
 
   const rawPath = action.params.file_path || action.params.path || "";
@@ -112,160 +108,6 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
       window.removeEventListener("message", handleMessage);
     };
   }, [rawPath, conversationId, actionId, toolOutputs]);
-
-  // Fetch full file content for approval mode diff (this will be old_content = current)
-  React.useEffect(() => {
-    const permissionDecision = getPermissionDecision(
-      permissionMode,
-      "revert_file",
-    );
-
-    if (permissionDecision !== "confirm" || !rawPath || !conversationId) {
-      return;
-    }
-
-    // Get current version from history instead of file on disk
-    // (file on disk might have been changed already)
-    const currentVersion =
-      versionHistory.length > 0
-        ? versionHistory[versionHistory.length - 1].version
-        : undefined;
-
-    if (currentVersion === undefined) {
-      // Fallback to disk if no history
-      const requestId = `file-content-${actionId}`;
-      const handleMessage = (event: MessageEvent) => {
-        const msg = event.data;
-        if (
-          msg.command === "getFileContentResult" &&
-          msg.requestId === requestId
-        ) {
-          if (msg.content) {
-            setFullFileContent(msg.content);
-            action.params.old_content = msg.content;
-          }
-        }
-      };
-
-      window.addEventListener("message", handleMessage);
-      extensionService.postMessage({
-        command: "getFileContent",
-        path: rawPath,
-        requestId,
-      });
-
-      return () => {
-        window.removeEventListener("message", handleMessage);
-      };
-    }
-
-    // Fetch current version from history
-    const requestId = `current-version-${actionId}`;
-    const handleMessage = (event: MessageEvent) => {
-      const msg = event.data;
-      if (
-        msg.command === "getHistoryVersionResult" &&
-        msg.requestId === requestId
-      ) {
-        if (msg.error) {
-          return;
-        }
-
-        if (msg.history?.fullContent) {
-          setFullFileContent(msg.history.fullContent);
-          action.params.old_content = msg.history.fullContent;
-        }
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-
-    extensionService.postMessage({
-      command: "getHistoryVersion",
-      filePath: rawPath,
-      version: currentVersion,
-      conversationId,
-      requestId,
-    });
-
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, [permissionMode, rawPath, actionId, conversationId, versionHistory]);
-
-  // Fetch target version content for diff (this will be new_content = reverted)
-  React.useEffect(() => {
-    const permissionDecision = getPermissionDecision(
-      permissionMode,
-      "revert_file",
-    );
-    const explicitVersion = action.params.version;
-
-    // Calculate target version:
-    // - If version is specified → use it
-    // - If no version → auto-calculate as currentVersion - 1 (revert to previous)
-    // currentVersion = highest version number, NOT length
-    const currentVersion =
-      versionHistory.length > 0
-        ? versionHistory[versionHistory.length - 1].version
-        : undefined;
-    const targetVersion =
-      explicitVersion !== undefined
-        ? explicitVersion
-        : currentVersion !== undefined && currentVersion > 0
-          ? currentVersion - 1
-          : undefined;
-
-    if (
-      permissionDecision !== "confirm" ||
-      !rawPath ||
-      !conversationId ||
-      targetVersion === undefined
-    ) {
-      return;
-    }
-
-    const requestId = `version-content-${actionId}`;
-    const handleMessage = (event: MessageEvent) => {
-      const msg = event.data;
-      if (
-        msg.command === "getHistoryVersionResult" &&
-        msg.requestId === requestId
-      ) {
-        if (msg.error) {
-          return;
-        }
-
-        if (msg.history?.fullContent) {
-          // Store target version content as new_content for diff
-          action.params.new_content = msg.history.fullContent;
-          // Trigger re-render
-          setFullFileContent((prev) => (prev === null ? "" : prev + " "));
-        }
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-
-    extensionService.postMessage({
-      command: "getHistoryVersion",
-      filePath: rawPath,
-      version: targetVersion,
-      conversationId,
-      requestId,
-    });
-
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, [
-    permissionMode,
-    rawPath,
-    conversationId,
-    action.params.version,
-    actionId,
-    versionHistory,
-  ]);
 
   // Calculate diff stats using ACCURATE diff algorithm
   let diffStats: DiffStats | null = null;
@@ -377,45 +219,6 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
       : isActiveGroup
         ? "var(--vscode-descriptionForeground)"
         : "var(--vscode-descriptionForeground)";
-
-  // Build diff preview data for approval mode
-  const approvalDiffData = React.useMemo(() => {
-    const permissionDecision = getPermissionDecision(
-      permissionMode,
-      "revert_file",
-    );
-
-    if (permissionDecision !== "confirm" || isCompleted) {
-      return null;
-    }
-
-    // If we have old_content and new_content from backend (after revert simulation)
-    const oldContent = action.params.old_content || action.params.old_str;
-    const newContent = action.params.new_content || action.params.new_str;
-
-    if (!oldContent || !newContent) {
-      return null;
-    }
-
-    // Use SEARCH/REPLACE diff format for proper line-by-line comparison
-    // parseDiff() expects exactly this format
-    const diffText = `<<<<<<< SEARCH\n${oldContent}\n=======\n${newContent}\n>>>>>>> REPLACE`;
-    const parsed = parseDiff(diffText);
-
-    return {
-      code: parsed.code,
-      lineHighlights:
-        parsed.lineHighlights.length > 0 ? parsed.lineHighlights : undefined,
-    };
-  }, [
-    permissionMode,
-    fullFileContent,
-    action.params,
-    isCompleted,
-    versionHistory,
-    explicitTargetVersion,
-    currentVersion,
-  ]);
 
   // Helper: get language from file path
   const getLanguageFromPath = (filePath: string): string | undefined => {
@@ -700,27 +503,6 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
         }}
       />
 
-      {/* Show diff in CodeBlock when approval mode — only when not completed */}
-      {(() => {
-        const shouldShow = !isCompleted && approvalDiffData;
-        if (!shouldShow) return null;
-
-        return (
-          <CodeBlock
-            code={approvalDiffData.code}
-            language={getLanguageFromPath(rawPath)}
-            lineHighlights={
-              approvalDiffData.lineHighlights &&
-              approvalDiffData.lineHighlights.length > 0
-                ? approvalDiffData.lineHighlights
-                : undefined
-            }
-            autoScrollToDiff={true}
-            maxHeight="400px"
-            hideHeader={true}
-          />
-        );
-      })()}
 
       {isError && (
         <ErrorBlock
@@ -730,23 +512,6 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
         />
       )}
 
-      {!isCompleted &&
-        !isError &&
-        !hasValidationError &&
-        getPermissionDecision(permissionMode, "revert_file") === "confirm" && (
-          <div style={{ padding: "0 12px 8px 0" }}>
-            <ActionBar
-              action={action}
-              messageId={messageId}
-              actionIndex={actionIndex}
-              hasError={hasValidationError}
-              isCompleted={isCompleted}
-              onAction={(e, type) =>
-                onToolClick(action, messageId, actionIndex, type)
-              }
-            />
-          </div>
-        )}
       {hasValidationError && action.errorMessage && (
         <ErrorBlock
           content={`Validation Error: ${action.errorMessage}`}

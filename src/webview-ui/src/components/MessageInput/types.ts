@@ -91,12 +91,9 @@ export interface MessageInputProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   autoScrollPaused?: boolean;
   scrollToBottom?: () => void;
-  /** Gọi khi người dùng chọn (hoặc vừa tạo) 1 rule để gắn vào input. */
-  onSelectRule?: (item: AttachedItem) => void;
   /** Gọi khi xác nhận chọn skill — truyền toàn bộ tập skill mới (thay thế tập cũ). */
   onSelectSkills?: (items: AttachedItem[]) => void;
-  /** Gỡ 1 attached item theo id — dùng để gỡ badge Rule khỏi toolbar. */
-  onRemoveAttachedItem?: (id: string) => void;
+
   /** Per-conversation override: diagnostic enabled (chỉ hiển thị ở Home panel) */
   conversationDiagnosticEnabled?: boolean;
   /** Per-conversation override: skill enabled (chỉ hiển thị ở Home panel) */
@@ -113,6 +110,10 @@ export interface MessageInputProps {
   onConversationMemoryToggle?: () => void;
   /** Callback khi toggle tool format thay đổi */
   onConversationToolFormatToggle?: () => void;
+  /** Trạng thái overlay GAME đang mở (chỉ ở chat view). */
+  isGameOpen?: boolean;
+  /** Toggle overlay GAME. */
+  onToggleGame?: () => void;
 }
 
 export interface ToggleButtonProps {

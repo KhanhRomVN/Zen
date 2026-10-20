@@ -22,11 +22,6 @@ export const buildConstraints = (
 
   const askSection = (() => {
     switch (behavior.askConfirmation) {
-      case "minimal":
-        return `## Clarification & Assumption Rules
-- **ASSUMPTION-BAN**: Only convert an assumption into ${Q} if it is IMPOSSIBLE to proceed without the user's input (missing env var name, unknown endpoint URL, required credential). For style/convention/organization assumptions, infer from existing repository patterns and proceed without asking.
-- **IMPACT-CONFIRM**: Only apply when a change is irreversible (deleting files, dropping data) or touches shared config/secrets. For normal multi-file changes, proceed without confirmation.
-- **RE-CLARIFY**: Not required for this workflow. Continue through batches without pausing to re-confirm direction.`;
       case "moderate":
         return `## Clarification & Assumption Rules
 - **ASSUMPTION-BAN**: When multiple valid options exist with genuine trade-offs, or the assumption affects the approach significantly → convert to ${Q}. Minor assumptions (naming, file organization) can proceed silently following existing patterns.
@@ -41,7 +36,8 @@ export const buildConstraints = (
 - **LATE-QUESTION**: At any point — including mid-execution — if new information raises uncertainty, you MUST ask.`;
       case "almost-never":
         return `## Clarification & Assumption Rules
-- **ASSUMPTION-BAN**: Do NOT stop to ask about assumptions. When ambiguity exists, choose the most reasonable interpretation based on codebase conventions and note it with \`// ASSUMED: ...\` in code.
+- **ASSUMPTION-BAN**: NEVER ask about assumptions, approach, naming, scope, or which option is best. When ambiguity exists, silently choose the most reasonable interpretation based on codebase conventions and proceed. Do NOT present options for the user to pick.
+- **QUESTION-OVERRIDE**: This mode overrides every other rule in this prompt that says to ask, confirm, or clarify (ORIENT, CONTRADICTION-CLARIFY, PARTIAL-ANSWER-FOLLOWUP, PRIORITIZE-AND-CONFIRM, and any guidance to use ${Q} whenever uncertain). Only the MANDATORY-STOP cases below may produce a question.
 - **MANDATORY-STOP**: Only stop and ask when: (1) the command/operation is destructive (rm -rf, git push --force, git reset --hard, etc.), or (2) information is truly impossible to infer from the codebase (secrets, credentials, external endpoint URLs).
 - **IMPACT-CONFIRM**: Skip for normal changes. Only ask for destructive operations or credential modifications.
 - **RE-CLARIFY**: Not required. Continue autonomously through the task.`;
@@ -116,7 +112,11 @@ ${testSection}
       ? `Never wrap plain prose/status messages in code fences — the ONLY fenced code blocks you emit are \`\`\`json blocks, each containing exactly ONE JSON object (either a tool call with a "tool" key, or a UI object with a "type" key). Prose belongs in a {"type":"markdown"} UI object, not in a fence.`
       : `Never wrap plain prose/status messages in code fences — the ONLY fenced code blocks you emit are ones that contain tool tags (\`\`\`xml). Prose belongs in \`<markdown>\`, not in a fence.`
   }
-- **MINIMAL-MARKDOWN**: If your response contains tool calls, include at most ONE short sentence of prose before the tool calls stating the immediate action. (${
+- **MINIMAL-MARKDOWN**: ${
+    behavior.markdownLevel === "silent"
+      ? `HARD RULE (mode="${mode}"): emit ZERO markdown UI objects/prose blocks while the task is in progress — no {"type":"markdown"} in JSON, no <markdown> in XML, before, between, or after tool calls in any turn that also contains a tool call. The ONLY permitted markdown is a single final reply emitted once the task is fully complete, and it must be exactly ONE short sentence (no headings, no bullet lists, no tables, no bold, no code blocks). If you are about to write any status/prose line alongside a tool call, do not — the tool call alone is the response.`
+      : `If your response contains tool calls, include at most ONE short sentence of prose before the tool calls stating the immediate action.`
+  } (${
     isJson
       ? `In JSON mode this prose is emitted as a {"type":"markdown","content":"..."} UI object.`
       : `(<markdown> is a UI tag, not a tool call — it remains valid in every tool format.)`
@@ -141,5 +141,9 @@ ${commentSection}
 - **NO-FULL-FILE-BY-DEFAULT**: For code changes, show only 5-15 lines of context around the change, labeled with the line range and enclosing function/class name. Show both a "before" block and an "after" block (label them in ${language}, e.g. the equivalent of "Old code" / "New code").
 - **DEBUG-TEMPLATE**: When adding temporary debug output, use a clearly marked, removable debug-log style with a \`[DEBUG]\` tag, and ask the user to test afterward.
 ${explanationSection}
-- **RESPONSE-STRUCTURE**: Structure the response as: (a) a brief restatement of the task, (b) approach + solution + key changes, (c) recommendations. Keep it lightweight for small fixes — don't force all three parts for a one-line change.`;
+${
+  behavior.markdownLevel === "silent"
+    ? `- **RESPONSE-STRUCTURE**: Do NOT restate the task, explain the approach, or give recommendations. Do NOT show before/after code blocks (this overrides NO-FULL-FILE-BY-DEFAULT) — the tool call already shows the change. The final reply is only the single sentence required by EXPLANATION-LEVEL.`
+    : `- **RESPONSE-STRUCTURE**: Structure the response as: (a) a brief restatement of the task, (b) approach + solution + key changes, (c) recommendations. Keep it lightweight for small fixes — don't force all three parts for a one-line change.`
+}`;
 };

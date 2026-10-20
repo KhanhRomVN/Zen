@@ -49,11 +49,9 @@ import {
   DropdownItem,
 } from "../../components/ui/Dropdown";
 
-// ── Hooks ──
+// ── Hooks ─
 import { useAccounts } from "./hooks/useAccounts";
 import { useSettings } from "../../context/SettingsContext";
-import { useActiveDatabaseManagerName } from "../../hooks/useActiveDatabaseManagerName";
-
 // ── Services ──
 import { extensionService, messageDispatcher } from "../../services/ExtensionService";
 
@@ -235,8 +233,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
   const [importLoading, setImportLoading] = useState(false);
   const [importLoadingMsg, setImportLoadingMsg] = useState("");
   const [importDuplicatesOpen, setImportDuplicatesOpen] = useState(false);
-  const { apiUrl, activeDatabaseManagerId } = useSettings();
-  const activeDbName = useActiveDatabaseManagerName();
+  const { apiUrl } = useSettings();
 
   // ── Store ──
   const {
@@ -332,7 +329,6 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
       command: "importAccounts",
       apiUrl,
       requestId,
-      databaseManagerId: activeDatabaseManagerId ?? null,
     });
   };
 
@@ -345,7 +341,6 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
    */
   const handleConfirmImport = async (selectedEntries: DuplicateEntry[]) => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (activeDatabaseManagerId) headers["x-database-manager-id"] = activeDatabaseManagerId;
 
     const toInsert = selectedEntries
       .filter((e: any) => e.kind === "new")
@@ -458,22 +453,6 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 >
                   Accounts
                 </span>
-                {activeDbName && (
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 500,
-                      padding: "2px 7px",
-                      borderRadius: "4px",
-                      backgroundColor: "rgba(59, 130, 246, 0.12)",
-                      color: "#3b82f6",
-                      letterSpacing: "0.01em",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {activeDbName}
-                  </span>
-                )}
               </div>
               <p
                 style={{
@@ -686,18 +665,20 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
             onClick={() => setDialogOpen(true)}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor =
-                "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)";
+                "color-mix(in srgb, var(--vscode-button-background) 28%, transparent)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--input-bg)";
+              e.currentTarget.style.backgroundColor =
+                "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)";
             }}
             style={{
               width: "34px",
               height: "34px",
               borderRadius: "8px",
-              backgroundColor: "var(--input-bg)",
-              border: "none",
-              color: "var(--secondary-text)",
+              backgroundColor:
+                "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)",
+              border: "1px dashed var(--vscode-button-background)",
+              color: "var(--vscode-button-background)",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
@@ -758,59 +739,11 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
           </Dropdown>
         </div>
 
-        {/* Status badges — click để filter (chỉ Active/Expired có dữ liệu) */}
-        <div
-          style={{
-            display: "flex",
-            gap: "6px",
-            marginTop: "8px",
-            flexWrap: "wrap",
-          }}
-        >
-          {(
-            [
-              { key: "active", label: "Active", count: statusCounts.active },
-              { key: "expired", label: "Expired", count: statusCounts.expired },
-              { key: "error", label: "Error", count: 0, disabled: true },
-              { key: "inactive", label: "Inactive", count: statusCounts.inactive },
-            ] as const
-          ).map((b) => {
-            const isOn = statusFilter === b.key;
-            const disabled = "disabled" in b && b.disabled;
-            return (
-              <button
-                key={b.key}
-                type="button"
-                disabled={disabled}
-                onClick={() =>
-                  !disabled && setStatusFilter(isOn ? "" : (b.key as any))
-                }
-                title={disabled ? "No data source yet" : `Filter: ${b.label}`}
-                style={{
-                  fontSize: "11px",
-                  padding: "3px 8px",
-                  borderRadius: "12px",
-                  border: "none",
-                  backgroundColor: isOn
-                    ? "color-mix(in srgb, var(--vscode-button-background) 25%, transparent)"
-                    : "var(--input-bg)",
-                  color: isOn
-                    ? "var(--vscode-button-background)"
-                    : "var(--secondary-text)",
-                  cursor: disabled ? "not-allowed" : "pointer",
-                  opacity: disabled ? 0.5 : 1,
-                }}
-              >
-                {b.label}[{b.count}]
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Bulk Actions Bar — replaced by OverlayBar below */}
 
-      {/* Header: label + period tab bar */}
+      {/* Header: label */}
       <div
         style={{
           display: "flex",
@@ -843,40 +776,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
             {accounts.length}
           </span>
         </div>
-        <div
-          style={{
-            display: "flex",
-            gap: "4px",
-            backgroundColor: "var(--input-bg)",
-            padding: "3px",
-            borderRadius: "8px",
-          }}
-        >
-          {(["day", "week", "month", "year", "all"] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => setStatsPeriod(p)}
-              style={{
-                padding: "4px 12px",
-                borderRadius: "6px",
-                border: "none",
-                backgroundColor:
-                  statsPeriod === p
-                    ? "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)"
-                    : "transparent",
-                color:
-                  statsPeriod === p
-                    ? "var(--vscode-button-background)"
-                    : "var(--secondary-text)",
-                fontSize: "11px",
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              {p === "day" ? "Day" : p === "week" ? "Week" : p === "month" ? "Month" : p === "year" ? "Year" : "All"}
-            </button>
-          ))}
-        </div>
+
       </div>
 
       {/* Account List */}

@@ -17,11 +17,11 @@
 
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── React ─
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 // ── Services & Contexts ──
 import { parseAIResponse } from "../../services/ResponseParser";
-import { useSettings } from "@/context/SettingsContext";
 import { useStreamingPreviewStore } from "../../stores/streamingPreviewStore";
 
 // ── Hooks ──
@@ -35,6 +35,7 @@ import { useMessageActions } from "../../hooks/messages/useMessageActions";
 import ChatBodySkeleton from "./ChatBodySkeleton";
 import SearchBar from "./SearchBar";
 import MessageBoxWithErrorBoundary from "./MessageBox";
+import GameOverlay from "../GameOverlay";
 import ContinueTaskButton from "./ContinueTaskButton";
 import WaitingIndicator from "./WaitingIndicator";
 // ── Types ─
@@ -85,13 +86,54 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   dangerousCommands,
   onProceedDangerousCommand,
   onCancelDangerousCommand,
+  isGameOpen = false,
+  onCloseGame,
 }: ExtendedChatBodyProps) => {
-  const { permissionMode } = useSettings();
   const hasStreamingContent = useStreamingPreviewStore(
     (state) => state.content.length > 0,
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  const [gameRect, setGameRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [isGameHidden, setIsGameHidden] = useState(false);
+  const gameArmedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isGameOpen) {
+      setIsGameHidden(false);
+      gameArmedRef.current = false;
+      return;
+    }
+    const update = () => {
+      const el = bodyRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const panel = el.closest(".chat-panel");
+      const top = panel ? panel.getBoundingClientRect().top : r.top;
+      const footer = document.getElementById("chat-footer-container");
+      const footerRect = footer?.getBoundingClientRect();
+      const height = footerRect ? footerRect.bottom - top : r.bottom - top;
+      setGameRect({ top, left: r.left, width: r.width, height });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    const ro = new ResizeObserver(update);
+    if (bodyRef.current) ro.observe(bodyRef.current);
+    const footer = document.getElementById("chat-footer-container");
+    if (footer) ro.observe(footer);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+      ro.disconnect();
+    };
+  }, [isGameOpen]);
 
   // Refs to manage waiting timer without causing unnecessary re-renders of the whole list
   const requestStartTimeRef = useRef<number | null>(null);
@@ -167,7 +209,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     if (!firstPendingAction) return false;
     // Complex mode: always show all tools, never auto-approve
     return false;
-  }, [messages, isRestored, toolOutputs, permissionMode, clickedActions]);
+  }, [messages, isRestored, toolOutputs, clickedActions]);
 
   const visibleMessages = useMemo(
     () => messages.filter((msg) => !msg.uiHidden && !msg.isCancelled),
@@ -266,6 +308,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
         position: "relative",
       }}
     >
+
       {isLoadingConversation ? (
         <ChatBodySkeleton />
       ) : (
@@ -400,6 +443,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
           )}
 
           <div ref={messagesEndRef} />
+
+
+
           <style>{`
         .chat-body-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
         .chat-body-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -414,6 +460,60 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
       `}</style>
         </div>
       )}
+
+      {isGameOpen &&
+        gameRect &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: gameRect.top,
+              left: gameRect.left,
+              width: gameRect.width,
+              height: gameRect.height,
+              zIndex: 200,
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              onMouseEnter={() => {
+                if (gameArmedRef.current) setIsGameHidden(true);
+              }}
+              onClick={onCloseGame}
+              style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "auto",
+                background: isGameHidden ? "transparent" : "rgba(0,0,0,0.35)",
+                backdropFilter: isGameHidden ? "none" : "blur(6px)",
+                WebkitBackdropFilter: isGameHidden ? "none" : "blur(6px)",
+                transition: "background 0.15s ease, backdrop-filter 0.15s ease",
+              }}
+            />
+            <div
+              onMouseEnter={() => {
+                gameArmedRef.current = true;
+                setIsGameHidden(false);
+              }}
+              style={{
+                position: "absolute",
+                inset: "12px",
+                boxSizing: "border-box",
+                border: "1px dashed var(--secondary-text)",
+                pointerEvents: "auto",
+                opacity: isGameHidden ? 0 : 1,
+                transition: "opacity 0.15s ease",
+                backgroundColor: "var(--input-bg, var(--secondary-bg))",
+                borderRadius: "var(--border-radius)",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+                overflow: "hidden",
+              }}
+            >
+              <GameOverlay isProcessing={isProcessing || !!isContinuing} />
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };
@@ -436,6 +536,7 @@ const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
     prevProps.isGitProcessing === nextProps.isGitProcessing &&
     prevProps.isGitStatusVisible === nextProps.isGitStatusVisible &&
     prevProps.singleLineReviewActions === nextProps.singleLineReviewActions &&
+    prevProps.isGameOpen === nextProps.isGameOpen &&
     prevProps.canRegenerate === nextProps.canRegenerate &&
     // [FIX] Ensure dangerousCommands triggers re-render
     prevProps.dangerousCommands === nextProps.dangerousCommands

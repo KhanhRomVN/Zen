@@ -83,13 +83,15 @@ interface ChatFooterProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   autoScrollPaused?: boolean;
   scrollToBottom?: () => void;
-  /** Gọi khi người dùng chọn (hoặc vừa tạo) 1 rule để gắn vào input. */
-  onSelectRule?: (item: any) => void;
   /** Gọi khi xác nhận chọn skill — truyền toàn bộ tập skill mới (thay thế tập cũ). */
   onSelectSkills?: (items: any[]) => void;
   /** Tool format cho conversation này */
   conversationToolFormat?: "xml" | "json";
   onConversationToolFormatToggle?: () => void;
+  /** Trạng thái overlay GAME. */
+  isGameOpen?: boolean;
+  /** Toggle overlay GAME. */
+  onToggleGame?: () => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────
@@ -143,10 +145,11 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   onRevertConversation,
   autoScrollPaused = false,
   scrollToBottom,
-  onSelectRule,
   onSelectSkills,
   conversationToolFormat,
   onConversationToolFormatToggle,
+  isGameOpen,
+  onToggleGame,
 }) => {
   // ── Refs ──
   const renderCountRef = React.useRef(0);
@@ -268,11 +271,11 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
             onModelSwitch={onModelSwitch}
             autoScrollPaused={autoScrollPaused}
             scrollToBottom={scrollToBottom}
-            onSelectRule={onSelectRule}
             onSelectSkills={onSelectSkills}
-            onRemoveAttachedItem={removeAttachedItem}
             conversationToolFormat={conversationToolFormat}
             onConversationToolFormatToggle={onConversationToolFormatToggle}
+            isGameOpen={isGameOpen}
+            onToggleGame={onToggleGame}
           />
         </div>
       </div>

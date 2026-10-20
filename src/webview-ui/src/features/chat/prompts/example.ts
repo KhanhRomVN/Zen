@@ -237,17 +237,15 @@ User prefers concise answers with code examples.</new_content>
 These show how tools are sequenced across turns. Each "Turn N" is one assistant message; tool results arrive between turns and are never predicted (NO-PREDICTING-RESULTS).
 
 ### Batch 1: Context-gathering read batch, then edit, then verify
-**Description**: The canonical 3-phase cycle — read everything relevant first in one batched turn, wait for real content, then edit in a second turn, then re-read the changed region to confirm the write landed correctly.
+**Description**: The canonical 3-phase cycle — read everything relevant first in one batched turn, wait for real content, then edit in a second turn, then re-read the changed region to confirm the write landed correctly. NOTE: no markdown UI object is emitted alongside any tool call here — MINIMAL-MARKDOWN forbids prose during a task; the single final markdown appears only AFTER all writes succeed.
 \`\`\`xml
-<!-- Turn 1: batch all relevant reads together (READ-BEFORE-EDIT, BATCH) -->
-<markdown>Đọc các file liên quan để nắm ngữ cảnh trước khi sửa.</markdown>
+<!-- Turn 1: batch all relevant reads together (READ-BEFORE-EDIT, BATCH) — NO markdown here -->
 <read_file><file_path>src/features/cart/cart-store.ts</file_path></read_file>
 <read_file><file_path>src/features/cart/cart-types.ts</file_path></read_file>
 <read_file><file_path>src/features/cart/use-cart.ts</file_path></read_file>
 <!-- STOP. Wait for all three file contents before proceeding. -->
 
-<!-- Turn 2 (after results returned): make the edits, batched together -->
-<markdown>Cập nhật logic tính tổng giỏ hàng ở 2 file liên quan.</markdown>
+<!-- Turn 2 (after results returned): make the edits, batched together — NO markdown here either -->
 <replace_in_file>
 <file_path>src/features/cart/cart-store.ts</file_path>
 <old_content>function getTotal(items: CartItem[]): number {
@@ -350,8 +348,9 @@ export function createWishlistStore() {
  * (IMPACT-CONFIRM, RE-CLARIFY) that are THEMSELVES mode-dependent in
  * constraints.ts — e.g. "almost-never" mode explicitly says "IMPACT-CONFIRM:
  * Skip for normal changes" and "RE-CLARIFY: Not required". Feeding these
- * <question>-heavy worked examples into "fast"/"autopilot" contradicted
- * those modes' own "almost never ask" instructions.
+ * <question>-heavy worked examples into "fast" (formerly also "autopilot",
+ * which has since been merged into "fast") contradicted that mode's own
+ * "almost never ask" instructions.
  */
 const EXAMPLE_CONFIRMATION_BATCHES = `
 **Description**: A change touches a shared type used by multiple modules. Exploration and a Pass 3 impact list happen first; execution is held until the user confirms via <question>.
@@ -740,10 +739,7 @@ These show how tools are sequenced across turns. Each "Turn N" is one assistant 
 
 ### Batch 1: Context-gathering read batch, then edit, then verify
 **Description**: The canonical 3-phase cycle — read everything relevant first in one batched turn, wait for real content, then edit in a second turn, then re-read the changed region to confirm the write landed correctly.
-Turn 1 — batch all relevant reads together (READ-BEFORE-EDIT, BATCH). A short prose line first, then the reads:
-\`\`\`json
-{"type":"markdown","content":"Đọc các file liên quan để nắm ngữ cảnh trước khi sửa."}
-\`\`\`
+Turn 1 — batch all relevant reads together (READ-BEFORE-EDIT, BATCH). No markdown UI object alongside the tool calls — MINIMAL-MARKDOWN forbids prose during a task; the single final markdown appears only AFTER all writes succeed:
 \`\`\`json
 {"tool":"read_file","params":{"file_path":"src/features/cart/cart-store.ts"}}
 \`\`\`
@@ -755,10 +751,7 @@ Turn 1 — batch all relevant reads together (READ-BEFORE-EDIT, BATCH). A short 
 \`\`\`
 STOP. Wait for all three file contents before proceeding.
 
-Turn 2 — after results returned, make the edits together:
-\`\`\`json
-{"type":"markdown","content":"Cập nhật logic tính tổng giỏ hàng ở 2 file liên quan."}
-\`\`\`
+Turn 2 — after results returned, make the edits together (no markdown UI object here either):
 \`\`\`json
 {"tool":"replace_in_file","params":{"file_path":"src/features/cart/cart-store.ts","old_content":"function getTotal(items: CartItem[]): number {\\n  return items.reduce((sum, i) => sum + i.price, 0);\\n}","new_content":"function getTotal(items: CartItem[]): number {\\n  return items.reduce((sum, i) => sum + i.price * i.quantity, 0);\\n}"}}
 \`\`\`
@@ -1028,7 +1021,6 @@ export const buildExample = (
 ): string => {
   const behavior = MODE_BEHAVIORS[mode];
   const includeConfirmationBatches =
-    behavior.askConfirmation !== "minimal" &&
     behavior.askConfirmation !== "almost-never";
 
   if (toolFormat === "json") {

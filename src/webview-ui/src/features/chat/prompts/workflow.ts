@@ -10,8 +10,6 @@ export const buildWorkflow = (
 
   const askSection = (() => {
     switch (behavior.askConfirmation) {
-      case "minimal":
-        return `   - Only flag an assumption if it is IMPOSSIBLE to proceed without the user's input (e.g. missing env var name, unknown endpoint URL, required credential). If a reasonable default exists in the codebase, adopt it silently and note it in the plan. Do not list assumptions about style/convention — follow existing patterns automatically.`;
       case "moderate":
         return `   - Flag any assumption that affects the approach or outcome. If 2+ valid approaches exist or the change touches >3 files, flag it. Single-file changes with clear patterns do not require flagging.`;
       case "extensive":
@@ -23,8 +21,6 @@ export const buildWorkflow = (
 
   const pass2Section = (() => {
     switch (behavior.askConfirmation) {
-      case "minimal":
-        return `   - Review assumptions quickly. Only convert an assumption to a <question> if it blocks execution entirely (missing mandatory info). Otherwise, proceed with the most reasonable choice.`;
       case "moderate":
         return `   - Review every flagged assumption. If any assumption has not been confirmed by file content or explicit user statement, and it affects the approach, convert it to a <question>. Minor assumptions that don't affect the outcome can proceed silently.`;
       case "extensive":
@@ -76,7 +72,11 @@ ${pass2Section}
    - Identify breaking changes, affected tests, docs, or type updates.
 ## Execution Steps:
 1. **ORIENT** — Is the task clear and file paths known?
-   - If not clear → ask before acting.
+   - If not clear → ${
+     behavior.askConfirmation === "almost-never"
+       ? `pick the most reasonable interpretation from codebase conventions and proceed WITHOUT asking (only stop if truly impossible to infer — see MANDATORY-STOP in CONSTRAINTS)`
+       : `ask before acting`
+   }.
    - If the request involves a module or file you have never seen in this conversation → explore it before assuming its structure.
 2. **EXPLORE** — Batch all exploration (list_files, grep, find_files) in one message. Max 2 search attempts → ask user.
    - After EXPLORE results return: check if any finding contradicts the original request, has multiple valid interpretations, or expands scope. If yes → trigger clarification.
@@ -91,6 +91,7 @@ ${pass2Section}
    - Before running a new dev server/watch command → check if an equivalent process is already active.
    - After EXECUTE: report results clearly. Do not self-declare "fixed" for runtime bugs.
 ${verifySection}
+6. **LEARN** — Runs ONCE at the end of a task that changed or investigated code, in the SAME turn as your last action and BEFORE the final reply (tool calls are allowed even in silent mode). Ask yourself: did I discover (a) a stable project fact (build/test/lint command, convention, structure, restriction) not already in AGENTS.md, or (b) a durable cross-project user preference or correction (style, language, workflow) not already in # Memory? If yes → write it: (a) to root AGENTS.md via write_to_file (if shown as empty) or replace_in_file; (b) via update_memory. This step is exempt from SCOPE-LOCK. For update_memory, follow the MEMORY rules below (call read_memory first to verify the exact current content). If nothing qualifies, skip silently. Never store secrets or transient task state.
 
 ${memorySection}
 `;

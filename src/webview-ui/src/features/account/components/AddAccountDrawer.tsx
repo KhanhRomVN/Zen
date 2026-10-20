@@ -18,7 +18,7 @@
 // ── React ──
 import React, { useState, useEffect, useMemo, useRef } from "react";
 
-// ── UI ─
+// ── UI ──
 import {
   Loader2,
   X,
@@ -29,13 +29,21 @@ import {
   ExternalLink,
   ChevronLeft,
   UserX,
+  // Lucide icons for avatar fallback – chỉ 10 icon ít nét, dễ phân biệt
+  CircleUserRound,
+  Hexagon,
+  Diamond,
+  Star,
+  Zap,
+  Flame,
+  Leaf,
+  Mountain,
+  Heart,
+  Rocket,
 } from "lucide-react";
-
 // ── Hooks ──
 import { useDbFetch } from "../../../services/useDbFetch";
-import { useActiveDatabaseManagerName } from "../../../hooks/useActiveDatabaseManagerName";
 import { useSettings } from "../../../context/SettingsContext";
-
 // ── Services ──
 import {
   extensionService,
@@ -474,17 +482,75 @@ const ProviderFavicon: React.FC<{ provider: Provider; size?: number }> = ({
 };
 
 // ─── ProfileCard ────────────────────────────────────────────────────────
-/** Card 1 hoặc 2 dòng: badge soft-style bên trái, label (+ desc tùy chọn). */
+// ─── Avatar helpers (Lucide icon mapping + hash-based selection) ──────────
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/** Danh sách 10 Lucide component dùng cho fallback avatar – ít nét, dễ phân biệt. */
+const AVATAR_ICONS: React.ComponentType<any>[] = [
+  CircleUserRound,
+  Hexagon,
+  Diamond,
+  Star,
+  Zap,
+  Flame,
+  Leaf,
+  Mountain,
+  Heart,
+  Rocket,
+];
+
+/** Hash chuỗi → index ổn định trong mảng icon. */
+const hashToIndex = (str: string, len: number): number => {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h) % len;
+};
+
+/** Chọn Lucide icon cố định theo email/folder name. */
+const pickAvatarIcon = (seed: string) => {
+  const idx = hashToIndex(seed || "?", AVATAR_ICONS.length);
+  return AVATAR_ICONS[idx];
+};
+
+/** Màu nền soft theo seed (giữ nguyên logic hue cũ nhưng đồng nhất hơn). */
+const getToneFromSeed = (seed: string) => {
+  const first = (seed.trim().charAt(0) || "?").toUpperCase();
+  const hue = ((first.charCodeAt(0) || 0) * 47) % 360;
+  return {
+    bg: `hsla(${hue}, 70%, 55%, 0.15)`,
+    color: `hsl(${hue}, 70%, 55%)`,
+  };
+};
+
+/** Card 1 hoặc 2 dòng: avatar (ảnh thật hoặc Lucide icon) bên trái, label (+ desc). */
 const ProfileCard: React.FC<{
-  badge: React.ReactNode;
+  avatarUrl?: string;
+  avatarFallbackSeed: string;
   badgeBg: string;
   badgeColor: string;
   label: string;
   desc?: string;
   onClick: () => void;
   disabled?: boolean;
-}> = ({ badge, badgeBg, badgeColor, label, desc, onClick, disabled }) => {
+}> = ({
+  avatarUrl,
+  avatarFallbackSeed,
+  badgeBg,
+  badgeColor,
+  label,
+  desc,
+  onClick,
+  disabled,
+}) => {
   const [hovered, setHovered] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const IconComp = useMemo(
+    () => pickAvatarIcon(avatarFallbackSeed),
+    [avatarFallbackSeed],
+  );
+  const showImage = !!avatarUrl && !imgError;
+
   return (
     <div
       onClick={() => {
@@ -495,8 +561,8 @@ const ProfileCard: React.FC<{
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "14px",
-        padding: "12px 14px",
+        gap: "12px",
+        padding: "10px 12px",
         borderRadius: "10px",
         backgroundColor:
           hovered && !disabled
@@ -509,20 +575,37 @@ const ProfileCard: React.FC<{
         flexShrink: 0,
       }}
     >
+      {/* Avatar container – ~32px (≈90% của 36px cũ) */}
       <div
         style={{
-          width: "36px",
-          height: "36px",
-          borderRadius: "9px",
-          backgroundColor: badgeBg,
+          width: "32px",
+          height: "32px",
+          borderRadius: "8px",
+          backgroundColor: showImage ? "transparent" : badgeBg,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
           color: badgeColor,
+          overflow: "hidden",
         }}
       >
-        {badge}
+        {showImage ? (
+          <img
+            src={avatarUrl}
+            alt=""
+            onError={() => setImgError(true)}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              borderRadius: "8px",
+              display: "block",
+            }}
+          />
+        ) : (
+          <IconComp size={18} strokeWidth={1.75} />
+        )}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
@@ -551,7 +634,7 @@ const ProfileCard: React.FC<{
         )}
       </div>
       <ChevronLeft
-        size={15}
+        size={14}
         style={{
           color: "var(--secondary-text)",
           transform: "rotate(180deg)",
@@ -568,15 +651,21 @@ const ProfileCard: React.FC<{
  * Searchbar + danh sách Chromium profile (card "No profile" luôn hiện đầu).
  * State search nằm trong component → tự reset mỗi lần mở lại bước chọn profile.
  */
+interface ProfileEntry {
+  folder: string;
+  label?: string;
+  avatar?: string;
+}
+
 const ProfilePicker: React.FC<{
-  folders: string[];
+  entries: ProfileEntry[];
   loading: boolean;
   error: string;
   disabled: boolean;
   /** Đường dẫn thư mục chứa các profile (chromiumProfileDir). */
   baseDir?: string;
   onSelect: (folder?: string) => void;
-}> = ({ folders, loading, error, disabled, baseDir, onSelect }) => {
+}> = ({ entries, loading, error, disabled, baseDir, onSelect }) => {
   const [query, setQuery] = useState("");
 
   // Rút gọn đường dẫn: …/<thư mục cha>/<folder> (hỗ trợ cả "/" và "\")
@@ -590,19 +679,13 @@ const ProfilePicker: React.FC<{
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? folders.filter((f) => f.toLowerCase().includes(q)) : folders;
-  }, [folders, query]);
-
-  // Màu soft-style cố định theo chữ cái đầu (cùng chữ → cùng màu)
-  const getTone = (folder: string) => {
-    const first = folder.trim().charAt(0).toUpperCase();
-    const hue = ((first.charCodeAt(0) || 0) * 47) % 360;
-    return {
-      first: first || "?",
-      bg: `hsla(${hue}, 70%, 55%, 0.15)`,
-      color: `hsl(${hue}, 70%, 55%)`,
-    };
-  };
+    if (!q) return entries;
+    return entries.filter(
+      (e) =>
+        e.folder.toLowerCase().includes(q) ||
+        (e.label && e.label.toLowerCase().includes(q)),
+    );
+  }, [entries, query]);
 
   return (
     <>
@@ -655,7 +738,7 @@ const ProfilePicker: React.FC<{
         }}
       >
         <ProfileCard
-          badge={<UserX size={18} />}
+          avatarFallbackSeed="__no_profile__"
           badgeBg="rgba(59,130,246,0.12)"
           badgeColor="#3b82f6"
           label="No profile"
@@ -705,21 +788,19 @@ const ProfilePicker: React.FC<{
 
         {!loading &&
           !error &&
-          filtered.map((folder) => {
-            const tone = getTone(folder);
+          filtered.map((entry) => {
+            const displayName = entry.label || entry.folder;
+            const tone = getToneFromSeed(displayName);
             return (
               <ProfileCard
-                key={folder}
-                badge={
-                  <span style={{ fontSize: "14px", fontWeight: 700 }}>
-                    {tone.first}
-                  </span>
-                }
+                key={entry.folder}
+                avatarUrl={entry.avatar}
+                avatarFallbackSeed={displayName}
                 badgeBg={tone.bg}
                 badgeColor={tone.color}
-                label={folder}
-                desc={shortPath(folder)}
-                onClick={() => onSelect(folder)}
+                label={displayName}
+                desc={entry.label ? shortPath(entry.folder) : undefined}
+                onClick={() => onSelect(entry.folder)}
                 disabled={disabled}
               />
             );
@@ -788,17 +869,18 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   const [profileStepProvider, setProfileStepProvider] =
     useState<Provider | null>(null);
   const [profileStepMethod, setProfileStepMethod] = useState<string>("google");
-  const [profileFolders, setProfileFolders] = useState<string[]>([]);
+  const [profileEntries, setProfileEntries] = useState<
+    { folder: string; label?: string; avatar?: string }[]
+  >([]);
+  const [isDefaultChrome, setIsDefaultChrome] = useState(false);
   const [existingEmails, setExistingEmails] = useState<Set<string>>(new Set());
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [profilesError, setProfilesError] = useState("");
   const profileReqRef = useRef(0);
 
-  // ── Store ──
+  // ── Store ─
   const dbFetch = useDbFetch();
-  const activeDbName = useActiveDatabaseManagerName();
   const { chromiumProfileDir } = useSettings();
-
   // ── Derived ──
   const sharedBackdrop = (onClickBackdrop: () => void) => (
     <div
@@ -813,7 +895,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     />
   );
 
-  const sharedSheet = (children: React.ReactNode, height: string = "50%") => (
+  const sharedSheet = (children: React.ReactNode, height: string = "70%") => (
     <div
       style={{
         position: "fixed",
@@ -860,27 +942,42 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     setSelectedProvider(null);
     setProfileStepProvider(provider);
     setProfileStepMethod(method);
-    setProfileFolders([]);
+    setProfileEntries([]);
     setProfilesError("");
-
-    if (!chromiumProfileDir) {
-      setProfilesLoading(false);
-      setProfilesError(
-        "Chromium Profile Folder chưa được cấu hình trong Settings",
-      );
-      return;
-    }
 
     setProfilesLoading(true);
     const requestId = `listChromiumProfiles-${Date.now()}`;
 
-    // Extension host chỉ quét folder cấp 1 (không đệ quy) để tránh lag
-    const foldersPromise = new Promise<string[]>((resolve, reject) => {
+    // Extension host chỉ quét folder cấp 1 (không đệ quy) để tránh lag.
+    // Ưu tiên dùng `profiles` (có label=email + avatar); fallback sang `folders` nếu backend không trả profiles.
+    const profilesPromise = new Promise<{
+      entries: { folder: string; label?: string; avatar?: string }[];
+      isDefaultChrome: boolean;
+    }>((resolve, reject) => {
       messageDispatcher.register(
         requestId,
         (msg: any) => {
           if (msg.error) reject(new Error(msg.error));
-          else resolve(Array.isArray(msg.folders) ? msg.folders : []);
+          else {
+            const profilesArr = Array.isArray(msg.profiles) ? msg.profiles : [];
+            const foldersArr = Array.isArray(msg.folders) ? msg.folders : [];
+            const isDefault = !!msg.is_default_chrome;
+            if (profilesArr.length > 0) {
+              resolve({
+                entries: profilesArr.map((p: any) => ({
+                  folder: p.folder,
+                  label: p.label,
+                  avatar: p.avatar,
+                })),
+                isDefaultChrome: isDefault,
+              });
+            } else {
+              resolve({
+                entries: foldersArr.map((f: string) => ({ folder: f })),
+                isDefaultChrome: isDefault,
+              });
+            }
+          }
         },
         8000,
         () => reject(new Error("Quét Chromium Profile Folder quá thời gian")),
@@ -926,10 +1023,11 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
         return new Set<string>();
       });
 
-    Promise.all([foldersPromise, emailsPromise])
-      .then(([folders, emails]) => {
+    Promise.all([profilesPromise, emailsPromise])
+      .then(([{ entries, isDefaultChrome: isDef }, emails]) => {
         if (profileReqRef.current !== reqToken) return;
-        setProfileFolders(folders);
+        setProfileEntries(entries);
+        setIsDefaultChrome(isDef);
         setExistingEmails(emails);
       })
       .catch((err: any) => {
@@ -981,7 +1079,9 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
             extensionService.postMessage({
               command: "openBrowserWithProfile",
               url: data.account.verification_url,
-              ...(profileUserDataDir ? { userDataDir: profileUserDataDir } : {}),
+              ...(profileUserDataDir
+                ? { userDataDir: profileUserDataDir }
+                : {}),
             });
           }
           setLoading(false);
@@ -1529,30 +1629,30 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     );
   }
 
-  // ── Render ──
+  // ── Render ─
   // Profile selection step (sau khi chọn auth method, trước khi login)
   if (profileStepProvider && !showEmailDrawer && !showConfirm) {
-    // Ẩn profile đã có account cùng provider (folderName trùng email)
-    const visibleFolders = profileFolders.filter(
-      (name) => !existingEmails.has(name.trim().toLowerCase()),
-    );
+    // Custom profile folder: KHÔNG ẩn theo email; chỉ fallback Chrome mới áp dụng filter.
+    // Fallback Chrome mặc định: backend đã lọc sẵn profiles không có email, nên ở đây
+    // chỉ cần ẩn những profile trùng email với accounts hiện có.
+    const visibleEntries = isDefaultChrome
+      ? profileEntries.filter(
+          (p) => !(p.label && existingEmails.has(p.label.trim().toLowerCase())),
+        )
+      : profileEntries;
 
-    const hiddenFolders = profileFolders.filter((name) =>
-      existingEmails.has(name.trim().toLowerCase()),
-    );
+    const hiddenEntries = isDefaultChrome
+      ? profileEntries.filter(
+          (p) => p.label && existingEmails.has(p.label.trim().toLowerCase()),
+        )
+      : [];
 
-    if (hiddenFolders.length > 0) {
+    if (hiddenEntries.length > 0) {
       console.warn(
-        "[AddAccountDrawer] Folders bị ẩn (trùng với existingEmails):",
-        hiddenFolders,
+        "[AddAccountDrawer] Profiles bị ẩn (trùng với existingEmails):",
+        hiddenEntries.map((p) => ({ folder: p.folder, label: p.label })),
       );
-      hiddenFolders.forEach((name) => {
-        console.warn(
-          `  → "${name}" bị ẩn vì existingEmails chứa "${name.trim().toLowerCase()}"`,
-        );
-      });
     }
-
     // ─────────────────────────────────────────────────────────────────────
     const backToMethods = () => {
       setSelectedProvider(profileStepProvider);
@@ -1625,7 +1725,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
 
             {/* Searchbar + Profile cards */}
             <ProfilePicker
-              folders={visibleFolders}
+              entries={visibleEntries}
               loading={profilesLoading}
               error={profilesError}
               disabled={loading}
@@ -1633,7 +1733,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
               onSelect={startLogin}
             />
           </>,
-          "50%",
+          "70%",
         )}
         <style>{`
           @keyframes aaSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -2460,22 +2560,6 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 }}
               >
                 Add Account
-                {activeDbName && (
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 500,
-                      padding: "2px 7px",
-                      borderRadius: "4px",
-                      backgroundColor: "rgba(59, 130, 246, 0.12)",
-                      color: "#3b82f6",
-                      letterSpacing: "0.01em",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {activeDbName}
-                  </span>
-                )}
               </div>
               <div
                 style={{

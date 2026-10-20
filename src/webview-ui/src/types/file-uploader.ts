@@ -2,11 +2,9 @@
 export interface AttachedItem {
   id: string;
   path: string;
-  type: "file" | "external" | "text-snippet" | "rule" | "skill";
-  content?: string; // For text-snippet and rule types
+  type: "file" | "external" | "text-snippet" | "skill";
+  content?: string; // For text-snippet type
   lineCount?: number; // For text-snippet type
-  /** ID gốc của rule trong rules.json (dùng để phân biệt các rule khi cần) */
-  ruleId?: string;
   /** Slug skill đã cài (type = "skill") — path chứa tên hiển thị. */
   skillSlug?: string;
 }

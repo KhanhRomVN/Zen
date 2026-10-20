@@ -34,7 +34,6 @@ import {
 import { getFaviconUrl } from "@/utils/favicon";
 import { getClientId } from "@/utils/clientId";
 import { formatRelativeTime } from "@/utils/relativeTime";
-import { useActiveDatabaseManagerName } from "@/hooks/useActiveDatabaseManagerName";
 import { useDbFetch } from "@/services/useDbFetch";
 import type { SystemPromptMode } from "@/features/chat/prompts";
 import {
@@ -47,6 +46,7 @@ import AccountTooltip from "@/features/account/components/AccountTooltip";
 import type { FlatAccount } from "@/features/account/types";
 import { DEFAULT_EFFORT, EFFORT_LEVELS, splitModelAndEffort } from "./EffortDropdown";
 import type { EffortLevel } from "./EffortDropdown";
+import { accountsKey, cacheGet, cacheSet } from "./providerModelCache";
 
 interface Provider {
   provider_id: string;
@@ -69,6 +69,7 @@ interface Account {
   period_tokens?: number;
   last_used_at?: number | null;
   used_by_windows?: number;
+  used_by_projects?: string[];
   auth_method?: string | null;
 }
 
@@ -79,6 +80,12 @@ interface ProviderModelDrawerProps {
   isLoadingProviders?: boolean;
   apiUrl: string;
   onRefresh?: () => void;
+  /** Scope cache (theo database manager đang active) */
+  cacheScope?: string;
+  /** Provider/model/account đang dùng — ưu tiên lên đầu và gắn badge */
+  currentProviderId?: string;
+  currentModelId?: string;
+  currentAccountId?: string;
   /** Effort hiện tại user đang chọn trên toolbar — dùng để giữ selection khi pick model */
   currentEffort?: EffortLevel;
   onSelect: (model: {
@@ -369,10 +376,13 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
   providers,
   isLoadingProviders = false,
   onRefresh,
+  cacheScope,
+  currentProviderId,
+  currentModelId,
+  currentAccountId,
   currentEffort,
   onSelect,
 }) => {
-  const activeDbName = useActiveDatabaseManagerName();
   const dbFetch = useDbFetch();
   const [step, setStep] = useState<"model" | "account">("model");
   const [searchQuery, setSearchQuery] = useState("");
@@ -452,13 +462,21 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
       let isMounted = true;
       const url = `/v1/accounts?page=1&limit=50&provider_id=${selectedModel.provider_id}&clientId=${encodeURIComponent(getClientId())}`;
 
+      const cacheKey = accountsKey(
+        cacheScope ?? "default",
+        selectedModel.provider_id,
+      );
+      const cachedAccounts = cacheGet<Account[]>(cacheKey);
+      if (cachedAccounts) setProviderAccounts(cachedAccounts);
+
       const load = (showLoading: boolean) => {
-        if (showLoading) setIsLoadingAccounts(true);
+        if (showLoading && !cachedAccounts) setIsLoadingAccounts(true);
         dbFetch(url)
           .then((res) => res.json())
           .then((result) => {
-            if (isMounted && result.success && result.data?.accounts) {
-              setProviderAccounts(result.data.accounts);
+            if (result.success && result.data?.accounts) {
+              cacheSet(cacheKey, result.data.accounts);
+              if (isMounted) setProviderAccounts(result.data.accounts);
             } else if (isMounted) {
               console.warn(
                 "[QuickSwitchDrawer] No accounts in response:",
@@ -484,9 +502,8 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
         clearInterval(intervalId);
       };
     }
-    // dbFetch tự đổi identity khi activeDatabaseManagerId đổi → refetch đúng
-    // database, tránh danh sách account của database cũ bị treo lại.
-  }, [step, selectedModel, dbFetch]);
+    // dbFetch tự đổi identity khi apiUrl đổi → refetch đúng.
+  }, [step, selectedModel, dbFetch, cacheScope]);
 
   // getFavicon moved to @/utils/favicon
 
@@ -545,11 +562,14 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
 
     // Sort: provider có models lên trước, không có models (error/empty) xuống dưới
     return [...mapped].sort((a, b) => {
+      const aIsCurrent = a.provider_id === currentProviderId ? 0 : 1;
+      const bIsCurrent = b.provider_id === currentProviderId ? 0 : 1;
+      if (aIsCurrent !== bIsCurrent) return aIsCurrent - bIsCurrent;
       const aHasModels = a.models.length > 0 ? 0 : 1;
       const bHasModels = b.models.length > 0 ? 0 : 1;
       return aHasModels - bHasModels;
     });
-  }, [providers, searchQuery]);
+  }, [providers, searchQuery, currentProviderId]);
 
   const handleModelMouseEnter = (
     model: any,
@@ -664,22 +684,6 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                 }}
               >
                 {step === "model" ? "Quick Switch" : "Select Account"}
-                {activeDbName && (
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 500,
-                      padding: "2px 7px",
-                      borderRadius: "4px",
-                      backgroundColor: "rgba(59, 130, 246, 0.12)",
-                      color: "#3b82f6",
-                      letterSpacing: "0.01em",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {activeDbName}
-                  </span>
-                )}
               </span>
               <span
                 style={{
@@ -1025,7 +1029,23 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                   return true;
                                 },
                               );
-                              return dedupedModels.map((model: any) => {
+                              const isCurrentProvider =
+                                provider.provider_id === currentProviderId;
+                              const currentBase = currentModelId
+                                ? splitModelAndEffort(currentModelId).base
+                                : null;
+                              const isCurrentModelRow = (m: any) =>
+                                isCurrentProvider &&
+                                currentBase !== null &&
+                                splitModelAndEffort(m.id).base === currentBase;
+                              return [...dedupedModels]
+                                .sort(
+                                  (a: any, b: any) =>
+                                    Number(isCurrentModelRow(b)) -
+                                    Number(isCurrentModelRow(a)),
+                                )
+                                .map((model: any) => {
+                                const isCurrentModel = isCurrentModelRow(model);
                                 const successColor =
                                   model.success_rate >= 80
                                     ? "#4ade80"
@@ -1143,6 +1163,25 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                               return baseName;
                                             })()}
                                       </span>
+                                      {isCurrentModel && (
+                                        <span
+                                          style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            fontSize: "9px",
+                                            fontWeight: 600,
+                                            padding: "1px 6px",
+                                            borderRadius: "4px",
+                                            backgroundColor:
+                                              "rgba(34, 197, 94, 0.16)",
+                                            color: "#22c55e",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.02em",
+                                          }}
+                                        >
+                                          In use
+                                        </span>
+                                      )}
                                       {model.is_thinking && (
                                         <span
                                           style={{
@@ -1371,7 +1410,14 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                       </div>
                     );
                   }
-                  return filtered.map((acc) => {
+                  return [...filtered]
+                    .sort(
+                      (a, b) =>
+                        Number(b.id === currentAccountId) -
+                        Number(a.id === currentAccountId),
+                    )
+                    .map((acc) => {
+                    const isCurrentAccount = acc.id === currentAccountId;
                     // Tìm providerConfig cho account tooltip
                     const accProviderConfig = providers.find(
                       (p: any) => p.provider_id === acc.provider_id,
@@ -1511,9 +1557,8 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                   </span>
                                 );
                               })()}
-                            {(acc.used_by_windows ?? 0) > 0 && (
+                            {isCurrentAccount && (
                               <span
-                                title={`Đang được dùng bởi ${acc.used_by_windows} cửa sổ VSCode khác`}
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
@@ -1521,14 +1566,31 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                   fontWeight: 600,
                                   padding: "1px 6px",
                                   borderRadius: "4px",
-                                  backgroundColor: "rgba(234, 179, 8, 0.16)",
-                                  color: "#eab308",
+                                  backgroundColor: "rgba(34, 197, 94, 0.16)",
+                                  color: "#22c55e",
                                   flexShrink: 0,
                                   textTransform: "uppercase",
                                   letterSpacing: "0.02em",
                                 }}
                               >
                                 In use
+                              </span>
+                            )}
+                            {(acc.used_by_projects?.length ?? 0) > 0 && (
+                              <span
+                                title={`Also in use by ${acc.used_by_projects!.length} other VSCode window(s): ${acc.used_by_projects!.join(", ")}`}
+                                style={{
+                                  fontSize: "10px",
+                                  fontWeight: 500,
+                                  color: "#eab308",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  minWidth: 0,
+                                  flexShrink: 1,
+                                }}
+                              >
+                                {acc.used_by_projects!.join(", ")}
                               </span>
                             )}
                           </span>

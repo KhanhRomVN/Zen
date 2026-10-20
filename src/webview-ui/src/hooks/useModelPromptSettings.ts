@@ -47,7 +47,6 @@ const loadPreset = (
       "fast",
       "balanced",
       "thorough",
-      "autopilot",
       "short",
       "none",
     ];

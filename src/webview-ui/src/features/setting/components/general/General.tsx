@@ -2,16 +2,21 @@
  * ------------------------------------------------------------------
  * GeneralSettings
  * ------------------------------------------------------------------
- * Tab General trong Settings Panel. Được chia thành các GroupSection:
- * - Backend Connection : URL backend
- * - Chromium Profile   : Profile folder path + auto-detect subpath
- * - Language           : ngôn ngữ AI + ngôn ngữ commit message
- * Database Managers đã được tách sang tab riêng (xem Database.tsx).
+ * Tab General: Backend Connection, Chromium Profile (tự quét subpath),
+ * Language (ngôn ngữ AI + ngôn ngữ commit message).
  * ------------------------------------------------------------------
  */
 
 import React, { useEffect, useRef, useState } from "react";
-import { Server, Languages, FolderOpen, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import {
+  Server,
+  Languages,
+  FolderOpen,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  Info,
+} from "lucide-react";
 import { useSettings } from "../../../../context/SettingsContext";
 import {
   Dropdown,
@@ -20,26 +25,68 @@ import {
   DropdownItem,
 } from "../../../../components/ui/Dropdown";
 import { LANGUAGES } from "./LanguageSelector";
-import GroupSection from "../database/GroupSection";
+import { getChromeProfileDirs } from "../../../../services/chromeProfiles";
+import type { ChromeProfileDir } from "../../../../services/chromeProfiles";
+import {
+  SectionCard,
+  Field,
+  Callout,
+  StatusChip,
+  Chevron,
+} from "../shared/ui";
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 12px",
-  fontSize: "13px",
-  backgroundColor: "var(--input-bg)",
-  border: "none",
-  borderRadius: "8px",
-  color: "var(--primary-text)",
-  outline: "none",
-  boxSizing: "border-box",
-  height: "34px",
-};
+const BLUE = "#4c9dfb";
+const GREEN = "#34d399";
+const VIOLET = "#c084fc";
+const RED = "#f87171";
 
 type ScanState =
   | { status: "idle" }
   | { status: "scanning" }
   | { status: "done"; subpaths: string[] }
   | { status: "error"; message: string };
+
+interface LanguageDropdownProps {
+  flag: string;
+  label: string;
+  onSelect: (code: string, name: string) => void;
+}
+
+const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
+  flag,
+  label,
+  onSelect,
+}) => (
+  <Dropdown
+    align="start"
+    side="bottom"
+    sideOffset={6}
+    searchable
+    className="zs-dd"
+    minWidth="trigger"
+  >
+    <DropdownTrigger asChild>
+      <button type="button" className="zs-input zs-select">
+        <span className="zs-select-value">
+          <span>{flag}</span>
+          <span>{label}</span>
+        </span>
+        <Chevron />
+      </button>
+    </DropdownTrigger>
+    <DropdownContent className="zs-dd-content language-dropdown-content">
+      {LANGUAGES.map((lang) => (
+        <DropdownItem
+          key={lang.code}
+          icon={<span>{lang.flag}</span>}
+          onClick={() => onSelect(lang.code, lang.name)}
+        >
+          {lang.name}
+        </DropdownItem>
+      ))}
+    </DropdownContent>
+  </Dropdown>
+);
 
 const GeneralSettings: React.FC = () => {
   const {
@@ -56,17 +103,20 @@ const GeneralSettings: React.FC = () => {
   } = useSettings();
 
   const [scanState, setScanState] = useState<ScanState>({ status: "idle" });
-  // Debounce timer để tự động quét sau khi user dừng gõ path
   const scanDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track path đã được quét để tránh quét lặp
   const lastScannedDirRef = useRef<string>("");
+  const [chromeDirs, setChromeDirs] = useState<ChromeProfileDir[]>([]);
 
-  /**
-   * Quét folder profile và tự động chọn subpath nếu chỉ có 1 kết quả.
-   * Nếu mảng subpaths rỗng → cấu trúc mặc định → tự động đặt subpath = "".
-   */
+  const isPreset = chromeDirs.some((d) => d.path === chromiumProfileDir);
+
+  useEffect(() => {
+    getChromeProfileDirs()
+      .then(setChromeDirs)
+      .catch(() => setChromeDirs([]));
+  }, []);
+
   const scanProfileDir = async (dir: string) => {
-    if (!dir || !apiUrl) {
+    if (!dir || !apiUrl || isPreset) {
       setScanState({ status: "idle" });
       return;
     }
@@ -93,22 +143,16 @@ const GeneralSettings: React.FC = () => {
       const subpaths: string[] = json.data?.subpaths ?? [];
       setScanState({ status: "done", subpaths });
 
-      // Tự động áp dụng: cấu trúc mặc định hoặc chỉ có 1 subpath duy nhất
       if (subpaths.length === 0) {
         setChromiumProfileSubpath("");
       } else if (subpaths.length === 1) {
         setChromiumProfileSubpath(subpaths[0]);
       }
-      // Nếu có nhiều subpath → giữ nguyên để user chọn
     } catch {
-      setScanState({
-        status: "error",
-        message: "Cannot connect to backend",
-      });
+      setScanState({ status: "error", message: "Cannot connect to backend" });
     }
   };
 
-  // Khi chromiumProfileDir thay đổi → debounce quét 800ms
   useEffect(() => {
     if (scanDebounceRef.current) clearTimeout(scanDebounceRef.current);
     if (!chromiumProfileDir) {
@@ -116,7 +160,6 @@ const GeneralSettings: React.FC = () => {
       lastScannedDirRef.current = "";
       return;
     }
-    // Reset nếu path thay đổi
     if (lastScannedDirRef.current !== chromiumProfileDir) {
       setScanState({ status: "idle" });
     }
@@ -126,369 +169,191 @@ const GeneralSettings: React.FC = () => {
     return () => {
       if (scanDebounceRef.current) clearTimeout(scanDebounceRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chromiumProfileDir, apiUrl]);
 
-  // Khi apiUrl thay đổi → reset để quét lại với URL mới
   useEffect(() => {
     lastScannedDirRef.current = "";
     if (chromiumProfileDir) {
       setScanState({ status: "idle" });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiUrl]);
 
-  const renderSubpathSelector = () => {
+  const renderScanResult = () => {
     if (!chromiumProfileDir) return null;
 
     if (scanState.status === "scanning") {
       return (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            fontSize: "12px",
-            color: "var(--secondary-text)",
-            marginTop: "4px",
-          }}
+        <StatusChip
+          color={BLUE}
+          icon={<Loader2 size={12} className="zs-spin" />}
         >
-          <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />
           Scanning folder structure...
-        </div>
+        </StatusChip>
       );
     }
 
     if (scanState.status === "error") {
       return (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            fontSize: "12px",
-            color: "var(--error-color, #e57373)",
-            marginTop: "4px",
-          }}
-        >
-          <AlertCircle size={12} />
+        <StatusChip color={RED} icon={<AlertCircle size={12} />}>
           {scanState.message}
-        </div>
+        </StatusChip>
       );
     }
 
-    if (scanState.status === "done") {
-      const { subpaths } = scanState;
+    if (scanState.status !== "done") return null;
 
-      // Cấu trúc mặc định (rỗng) → hiển thị badge xác nhận, không cần chọn
-      if (subpaths.length === 0) {
-        return (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "12px",
-              color: "var(--success-color, #81c784)",
-              marginTop: "4px",
-            }}
-          >
-            <CheckCircle2 size={12} />
-            Standard structure detected — no subpath needed
-          </div>
-        );
-      }
+    const { subpaths } = scanState;
 
-      // 1 subpath → đã tự chọn, chỉ hiển thị xác nhận
-      if (subpaths.length === 1) {
-        return (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "12px",
-              color: "var(--success-color, #81c784)",
-              marginTop: "4px",
-            }}
-          >
-            <CheckCircle2 size={12} />
-            Subpath auto-detected:{" "}
-            <code
-              style={{
-                backgroundColor: "var(--input-bg)",
-                padding: "0 4px",
-                borderRadius: "4px",
-                fontSize: "11px",
-              }}
-            >
-              {subpaths[0]}
-            </code>
-          </div>
-        );
-      }
-
-      // Nhiều subpath → hiển thị dropdown chọn
+    if (subpaths.length === 0) {
       return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}>
-          <label
-            style={{
-              fontSize: "12px",
-              color: "var(--secondary-text)",
-            }}
-          >
-            Multiple structures found — select the correct subpath:
-          </label>
-          <Dropdown align="start" side="bottom" sideOffset={4}>
-            <DropdownTrigger asChild>
-              <button
-                type="button"
+        <StatusChip color={GREEN} icon={<CheckCircle2 size={12} />}>
+          Standard structure detected — no subpath needed
+        </StatusChip>
+      );
+    }
+
+    if (subpaths.length === 1) {
+      return (
+        <StatusChip color={GREEN} icon={<CheckCircle2 size={12} />}>
+          Subpath auto-detected: <code>{subpaths[0]}</code>
+        </StatusChip>
+      );
+    }
+
+    return (
+      <Field
+        label="Subpath"
+        hint="Multiple structures found — select the correct subpath."
+      >
+        <Dropdown
+          align="start"
+          side="bottom"
+          sideOffset={6}
+          className="zs-dd"
+          minWidth="trigger"
+        >
+          <DropdownTrigger asChild>
+            <button type="button" className="zs-input zs-select zs-mono">
+              <span
                 style={{
-                  ...inputStyle,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  cursor: "pointer",
+                  color: chromiumProfileSubpath
+                    ? "var(--primary-text)"
+                    : "var(--secondary-text)",
                 }}
               >
-                <span style={{ fontSize: "13px", color: chromiumProfileSubpath ? "var(--primary-text)" : "var(--placeholder-text, var(--secondary-text))" }}>
-                  {chromiumProfileSubpath || "Select subpath..."}
-                </span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
-            </DropdownTrigger>
-            <DropdownContent>
-              {subpaths.map((sp) => (
-                <DropdownItem
-                  key={sp || "__default__"}
-                  onClick={() => setChromiumProfileSubpath(sp)}
-                >
-                  {sp || (
-                    <span style={{ color: "var(--secondary-text)", fontStyle: "italic" }}>
-                      (default — no subpath)
-                    </span>
-                  )}
-                </DropdownItem>
-              ))}
-            </DropdownContent>
-          </Dropdown>
-        </div>
-      );
-    }
-
-    return null;
+                {chromiumProfileSubpath || "Select subpath..."}
+              </span>
+              <Chevron />
+            </button>
+          </DropdownTrigger>
+          <DropdownContent className="zs-dd-content">
+            {subpaths.map((sp) => (
+              <DropdownItem
+                key={sp || "__default__"}
+                onClick={() => setChromiumProfileSubpath(sp)}
+              >
+                {sp || (
+                  <span
+                    style={{
+                      color: "var(--secondary-text)",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    (default — no subpath)
+                  </span>
+                )}
+              </DropdownItem>
+            ))}
+          </DropdownContent>
+        </Dropdown>
+      </Field>
+    );
   };
 
+  const commitLang = LANGUAGES.find((l) => l.code === commitMessageLanguage);
+  const aiLang = LANGUAGES.find((l) => l.name === aiLanguage);
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "28px",
-      }}
-    >
-      {/* Backend Connection */}
-      <GroupSection
-        icon={<Server size={16} />}
-        color="#1565c0"
+    <div className="zs-stack">
+      <SectionCard
+        icon={<Server size={17} />}
+        accent={BLUE}
         title="Backend Connection"
         description="Backend API address."
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label
-            style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            Backend API URL
-          </label>
+        <Field label="Backend API URL">
           <input
             type="text"
+            className="zs-input zs-mono"
             value={apiUrl}
             onChange={(e) => setApiUrl(e.target.value)}
             placeholder="http://localhost:8888"
-            style={inputStyle}
+            spellCheck={false}
           />
-        </div>
-      </GroupSection>
+        </Field>
+      </SectionCard>
 
-      {/* Chromium Profile */}
-      <GroupSection
-        icon={<FolderOpen size={16} />}
-        color="#2e7d32"
+      <SectionCard
+        icon={<FolderOpen size={17} />}
+        accent={GREEN}
         title="Chromium Profile"
         description="Path to the folder containing browser profiles."
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label
-            style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            Profile Folder
-          </label>
+        <Callout
+          accent={GREEN}
+          icon={<Info size={18} />}
+          title="Use Chrome profiles"
+          badge="Recommended"
+        >
+          Using Chrome lets you log in and add accounts quickly. Zen reuses your
+          existing Chrome profiles, so adding a new account takes just a few
+          clicks.
+        </Callout>
+        <Field label="Profile Folder">
           <input
             type="text"
+            className="zs-input zs-mono"
             value={chromiumProfileDir}
             onChange={(e) => {
-              // Reset scan nếu path thay đổi
               lastScannedDirRef.current = "";
               setChromiumProfileDir(e.target.value);
             }}
-            placeholder="/home/user/.elara/profiles"
-            style={inputStyle}
+            placeholder={
+              chromeDirs[0]?.path
+                ? `Mặc định: ${chromeDirs[0].path}`
+                : "/home/user/.elara/profiles"
+            }
+            spellCheck={false}
           />
-          {renderSubpathSelector()}
-        </div>
-      </GroupSection>
+        </Field>
+        {renderScanResult()}
+      </SectionCard>
 
-      {/* Language */}
-      <GroupSection
-        icon={<Languages size={16} />}
-        color="#6a1b9a"
+      <SectionCard
+        icon={<Languages size={17} />}
+        accent={VIOLET}
         title="Language"
         description="AI response language and commit message language."
       >
-        {/* AI Language Selection */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label
-            style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            AI Language
-          </label>
-          <Dropdown align="start" side="bottom" sideOffset={4} searchable>
-            <DropdownTrigger asChild>
-              <button
-                type="button"
-                style={{
-                  ...inputStyle,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  cursor: "pointer",
-                }}
-              >
-                <span
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
-                >
-                  <span>
-                    {LANGUAGES.find((l) => l.name === aiLanguage)?.flag || "🌐"}
-                  </span>
-                  <span>{aiLanguage}</span>
-                </span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
-            </DropdownTrigger>
-            <DropdownContent className="language-dropdown-content">
-              {LANGUAGES.map((lang) => (
-                <DropdownItem
-                  key={lang.code}
-                  icon={<span>{lang.flag}</span>}
-                  onClick={() => setAiLanguage(lang.name)}
-                >
-                  {lang.name}
-                </DropdownItem>
-              ))}
-            </DropdownContent>
-          </Dropdown>
+        <div className="zs-grid2">
+          <Field label="AI Language">
+            <LanguageDropdown
+              flag={aiLang?.flag || "🌐"}
+              label={aiLanguage}
+              onSelect={(_code, name) => setAiLanguage(name)}
+            />
+          </Field>
+          <Field label="Commit Message Language">
+            <LanguageDropdown
+              flag={commitLang?.flag || "🌐"}
+              label={commitLang?.name || commitMessageLanguage}
+              onSelect={(code) => setCommitMessageLanguage(code)}
+            />
+          </Field>
         </div>
-
-        {/* Commit Message Language Selection */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label
-            style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            Commit Message Language
-          </label>
-          <Dropdown align="start" side="bottom" sideOffset={4} searchable>
-            <DropdownTrigger asChild>
-              <button
-                type="button"
-                style={{
-                  ...inputStyle,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  cursor: "pointer",
-                }}
-              >
-                <span
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
-                >
-                  <span>
-                    {LANGUAGES.find((l) => l.code === commitMessageLanguage)
-                      ?.flag || "🌐"}
-                  </span>
-                  <span>
-                    {LANGUAGES.find((l) => l.code === commitMessageLanguage)
-                      ?.name || commitMessageLanguage}
-                  </span>
-                </span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
-            </DropdownTrigger>
-            <DropdownContent className="language-dropdown-content">
-              {LANGUAGES.map((lang) => (
-                <DropdownItem
-                  key={lang.code}
-                  icon={<span>{lang.flag}</span>}
-                  onClick={() => setCommitMessageLanguage(lang.code)}
-                >
-                  {lang.name}
-                </DropdownItem>
-              ))}
-            </DropdownContent>
-          </Dropdown>
-        </div>
-      </GroupSection>
+      </SectionCard>
     </div>
   );
 };

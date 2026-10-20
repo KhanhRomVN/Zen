@@ -2,9 +2,12 @@ export type SystemPromptMode =
   | "fast"
   | "balanced"
   | "thorough"
-  | "autopilot"
   | "short"
   | "none";
+// NOTE: "autopilot" was removed as a user-selectable mode. Its behavior
+// (almost no confirmations, no markdown prose) is fully covered by "fast",
+// so having two nearly-identical modes only confused the selector. The
+// "fast" entry below is the single source of truth for that behavior now.
 
 // NOTE: PromptLengthMode controls how much of the system prompt is SENT
 // (short/medium/long/none = which sections are included).
@@ -32,10 +35,17 @@ export type PromptLengthMode = "short" | "medium" | "long" | "none";
 export const MAX_READ_LINES_PER_TURN = 1500;
 
 export interface ModeBehaviorConfig {
-  askConfirmation: "minimal" | "moderate" | "extensive" | "almost-never";
+  askConfirmation: "almost-never" | "moderate" | "extensive";
   commentStyle: "minimal" | "standard" | "comprehensive" | "standard";
   testBehavior: "none" | "propose-existing" | "write-new" | "propose-existing";
   explanationLevel: "one-line" | "brief" | "detailed" | "brief";
+  /**
+   * "silent": no prose before/between tool calls, a single one-sentence
+   * markdown at the very end of the task, no restating/recommendations.
+   * "normal": at most one short sentence before tool calls, standard
+   * RESPONSE-STRUCTURE.
+   */
+  markdownLevel: "silent" | "normal";
   readBeforeEdit: boolean;
   /**
    * WRITE-ONLY cap. Governs how many write_to_file / replace_in_file /
@@ -57,10 +67,11 @@ export interface ModeBehaviorConfig {
 }
 
 const FAST_BEHAVIOR: ModeBehaviorConfig = {
-  askConfirmation: "minimal",
+  askConfirmation: "almost-never",
   commentStyle: "minimal",
   testBehavior: "none",
   explanationLevel: "one-line",
+  markdownLevel: "silent",
   readBeforeEdit: true,
   maxBatchSize: 5,
   runVerifyAfterChange: false,
@@ -73,6 +84,7 @@ export const MODE_BEHAVIORS: Record<SystemPromptMode, ModeBehaviorConfig> = {
     commentStyle: "standard",
     testBehavior: "propose-existing",
     explanationLevel: "brief",
+    markdownLevel: "normal",
     readBeforeEdit: true,
     maxBatchSize: 3,
     runVerifyAfterChange: false,
@@ -82,18 +94,10 @@ export const MODE_BEHAVIORS: Record<SystemPromptMode, ModeBehaviorConfig> = {
     commentStyle: "comprehensive",
     testBehavior: "write-new",
     explanationLevel: "detailed",
+    markdownLevel: "normal",
     readBeforeEdit: true,
     maxBatchSize: 2,
     runVerifyAfterChange: true,
-  },
-  autopilot: {
-    askConfirmation: "almost-never",
-    commentStyle: "standard",
-    testBehavior: "propose-existing",
-    explanationLevel: "brief",
-    readBeforeEdit: true,
-    maxBatchSize: 4,
-    runVerifyAfterChange: false,
   },
   // "short" and "none" (SystemPromptMode) intentionally mirror "fast" behavior.
   // They exist so a caller can pick a SystemPromptMode even when only

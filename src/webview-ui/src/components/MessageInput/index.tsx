@@ -26,6 +26,7 @@ import { combinePromptsForMode } from "../../features/chat/prompts";
 import { buildClaudePrompt } from "../../features/chat/prompts/claude-system-prompt";
 import type { SystemInfo } from "../../features/chat/prompts";
 import ProviderModelDrawer from "./ProviderModelDrawer";
+import { cacheGet, cacheSet, providersKey } from "./providerModelCache";
 import EffortDropdown, { getModelEffortInfo } from "./EffortDropdown";
 import type { EffortLevel } from "./EffortDropdown";
 import PromptLengthDropdown, {
@@ -43,7 +44,6 @@ import type {
   UploadedFile,
   ToggleButtonProps,
 } from "./types";
-import { PERMISSION_MODE } from "../../features/chat/constants/constants";
 
 export type { UploadedFile };
 
@@ -474,206 +474,6 @@ const SearchButton: React.FC<ToggleButtonProps> = ({
   </IconToggleButton>
 );
 
-// ============================================================================
-// GLOBAL PERMISSION BUTTON
-// ============================================================================
-
-const GlobalPermissionButton: React.FC = () => {
-  const { permissionMode, setPermissionMode } = useSettings();
-  const [open, setOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
-  const [isHovered, setIsHovered] = React.useState(false);
-  const [tooltip, setTooltip] = React.useState<{
-    id: string;
-    x: number;
-    y: number;
-  } | null>(null);
-  const tooltipTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  React.useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  React.useEffect(() => {
-    if (!open) {
-      setTooltip(null);
-      if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
-    }
-  }, [open]);
-
-  const handleItemMouseEnter = (
-    id: string,
-    e: React.MouseEvent<HTMLButtonElement>,
-  ) => {
-    if (!e.currentTarget.parentElement) return;
-    if (
-      !e.currentTarget.style.backgroundColor ||
-      e.currentTarget.style.backgroundColor === "transparent"
-    ) {
-      e.currentTarget.style.backgroundColor =
-        "var(--vscode-list-hoverBackground)";
-    }
-    const rect = e.currentTarget.getBoundingClientRect();
-    tooltipTimer.current = setTimeout(() => {
-      setTooltip({ id, x: rect.right + 6, y: rect.top });
-    }, 500);
-  };
-
-  const handleItemMouseLeave = (
-    isSelected: boolean,
-    e: React.MouseEvent<HTMLButtonElement>,
-  ) => {
-    if (!isSelected) e.currentTarget.style.backgroundColor = "transparent";
-    if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
-    setTooltip(null);
-  };
-
-  const metadata =
-    PERMISSION_MODE[permissionMode] || PERMISSION_MODE.fullAccess;
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "4px",
-          padding: "0 8px",
-          height: "22px",
-          boxSizing: "border-box",
-          borderRadius: "4px",
-          cursor: "pointer",
-          fontSize: "11px",
-          fontWeight: 600,
-          letterSpacing: "0.3px",
-          transition: "all 0.2s ease-in-out",
-          border: `1px solid ${metadata.color}40`,
-          background: isHovered
-            ? `color-mix(in srgb, ${metadata.color} 20%, transparent)`
-            : `color-mix(in srgb, ${metadata.color} 12%, transparent)`,
-          color: metadata.color,
-          opacity: 1,
-          lineHeight: 1,
-          verticalAlign: "middle",
-        }}
-        title="Tool permission mode"
-      >
-        {metadata.icon}
-        <span
-          style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
-        >
-          {metadata.label}
-        </span>
-      </button>
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "calc(100% + 4px)",
-            left: 0,
-            zIndex: 1000,
-            backgroundColor:
-              "var(--vscode-dropdown-background, var(--vscode-editorHoverWidget-background, #252526))",
-            border:
-              "1px solid var(--vscode-widget-border, var(--border-color, #454545))",
-            borderRadius: "6px",
-            overflow: "hidden",
-            boxShadow: "0 -4px 16px rgba(0,0,0,0.35)",
-            minWidth: "180px",
-          }}
-        >
-          {Object.entries(PERMISSION_MODE).map(([modeId, meta]) => {
-            const isSelected = permissionMode === modeId;
-            return (
-              <button
-                key={modeId}
-                onClick={() => {
-                  setPermissionMode(modeId as any);
-                  setOpen(false);
-                  setTooltip(null);
-                  if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  width: "100%",
-                  padding: "7px 12px",
-                  fontSize: "11.5px",
-                  fontWeight: 500,
-                  textAlign: "left",
-                  border: "none",
-                  cursor: "pointer",
-                  background: isSelected
-                    ? "var(--vscode-button-background)"
-                    : "transparent",
-                  color: isSelected
-                    ? "var(--vscode-button-foreground)"
-                    : "var(--vscode-foreground)",
-                }}
-                onMouseEnter={(e) => handleItemMouseEnter(modeId, e)}
-                onMouseLeave={(e) => handleItemMouseLeave(isSelected, e)}
-              >
-                <span
-                  style={{
-                    color: isSelected ? "inherit" : meta.color,
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  {meta.icon}
-                </span>
-                {meta.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {tooltip && PERMISSION_MODE[tooltip.id] && (
-        <div
-          style={{
-            position: "fixed",
-            left: tooltip.x,
-            top: tooltip.y,
-            zIndex: 9999,
-            backgroundColor:
-              "var(--vscode-editorHoverWidget-background, #1e1e1e)",
-            border: "1px solid var(--vscode-editorHoverWidget-border, #454545)",
-            borderRadius: "6px",
-            padding: "8px 10px",
-            maxWidth: "220px",
-            fontSize: "11px",
-            color: "var(--vscode-foreground)",
-            lineHeight: 1.5,
-            pointerEvents: "none",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-          }}
-        >
-          <div
-            style={{
-              fontWeight: 600,
-              marginBottom: "3px",
-              color: PERMISSION_MODE[tooltip.id].color,
-            }}
-          >
-            {PERMISSION_MODE[tooltip.id].label}
-          </div>
-          {PERMISSION_MODE[tooltip.id].desc}
-        </div>
-      )}
-    </div>
-  );
-};
-
 const PROMPT_HISTORY_KEY = "zen:user_prompt_history";
 const MAX_PROMPT_HISTORY = 50;
 
@@ -748,9 +548,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     onRevertConversation,
     autoScrollPaused = false,
     scrollToBottom,
-    onSelectRule,
     onSelectSkills,
-    onRemoveAttachedItem,
     conversationDiagnosticEnabled,
     conversationUseSkillEnabled,
     conversationMemoryEnabled,
@@ -759,6 +557,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     onConversationUseSkillToggle,
     onConversationMemoryToggle,
     onConversationToolFormatToggle,
+    isGameOpen = false,
+    onToggleGame,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
     const renderCountRef = React.useRef(0);
@@ -804,8 +604,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     };
 
     const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
-    const { aiLanguage: preferredLanguage, activeDatabaseManagerId } =
-      useSettings();
+    const { aiLanguage: preferredLanguage } = useSettings();
 
     // systemPromptMode + promptLengthMode: per provider+model, fallback về global
     const {
@@ -816,13 +615,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     } = useModelPromptSettings(currentModel?.providerId, currentModel?.id);
 
     const dbFetch = useDbFetch();
-    const prevDbManagerIdRef = React.useRef(activeDatabaseManagerId);
-    React.useEffect(() => {
-      if (prevDbManagerIdRef.current === activeDatabaseManagerId) return;
-      prevDbManagerIdRef.current = activeDatabaseManagerId;
-      setCurrentModel(null);
-      setCurrentAccount(null);
-    }, [activeDatabaseManagerId, setCurrentModel, setCurrentAccount]);
     const [providers, setProviders] = React.useState<any[]>([]);
     const [isLoadingProviders, setIsLoadingProviders] = React.useState(false);
     const [showModelDrawer, setShowModelDrawer] = React.useState(false);
@@ -859,13 +651,15 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       const accountId = currentAccount?.id;
       if (!accountId) return;
       const clientId = getClientId();
+      const projectName =
+        (folderPath || "").replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "";
       let cancelled = false;
       const beat = () => {
         if (cancelled) return;
         dbFetch(`/v1/accounts/${accountId}/presence`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clientId }),
+          body: JSON.stringify({ clientId, projectName }),
         }).catch(() => {});
       };
       beat();
@@ -878,7 +672,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
           { method: "DELETE" },
         ).catch(() => {});
       };
-    }, [currentAccount?.id, apiUrl, dbFetch]);
+    }, [currentAccount?.id, apiUrl, dbFetch, folderPath]);
 
     const { currentProviderConfig, currentModelConfig } = useProvidersConfig(
       currentModel,
@@ -1097,20 +891,30 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       return maxInputTokens !== null && messageTokenCount > maxInputTokens;
     }, [messageTokenCount, maxInputTokens]);
 
-    const fetchProviders = React.useCallback(async () => {
-      try {
-        setIsLoadingProviders(true);
-        const response = await dbFetch(`/v1/providers`);
-        const result = await response.json();
-        if (result.success) {
-          setProviders(result.data.filter((p: any) => p.is_enabled));
+    const providersScope = "default";
+
+    const fetchProviders = React.useCallback(
+      async (force = false) => {
+        const cacheKey = providersKey(providersScope);
+        const cached = cacheGet<any[]>(cacheKey);
+        if (cached) setProviders(cached);
+        try {
+          if (!cached || force === true) setIsLoadingProviders(true);
+          const response = await dbFetch(`/v1/providers`);
+          const result = await response.json();
+          if (result.success) {
+            const enabled = result.data.filter((p: any) => p.is_enabled);
+            cacheSet(cacheKey, enabled);
+            setProviders(enabled);
+          }
+        } catch (error) {
+          // console.error("Failed to fetch providers:", error);
+        } finally {
+          setIsLoadingProviders(false);
         }
-      } catch (error) {
-        // console.error("Failed to fetch providers:", error);
-      } finally {
-        setIsLoadingProviders(false);
-      }
-    }, [dbFetch]);
+      },
+      [dbFetch, providersScope],
+    );
 
     const refreshProviders = React.useCallback(async () => {
       try {
@@ -1119,7 +923,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       } catch {
         // non-fatal
       }
-      await fetchProviders();
+      await fetchProviders(true);
     }, [dbFetch, fetchProviders]);
 
     // Initial fetch
@@ -1628,6 +1432,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 isLoadingProviders={isLoadingProviders}
                 apiUrl={apiUrl}
                 onRefresh={refreshProviders}
+                cacheScope={providersScope}
+                currentProviderId={currentModel?.providerId}
+                currentModelId={currentModel?.id}
+                currentAccountId={currentAccount?.id}
                 currentEffort={effortInfo?.effort}
                 onSelect={(selected) => {
                   const prov = providers.find(
@@ -2108,7 +1916,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   showDeepResearch={supportsDeepResearch}
                   currentModel={currentModel}
                   currentModelConfig={currentModelConfig}
-                  onSelectRule={onSelectRule}
                   onSelectSkills={
                     onSelectSkills &&
                     ((items) => {
@@ -2168,6 +1975,35 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     onClick={toggleSearch}
                     title="Toggle Web Search Grounding"
                   />
+                )}
+
+                {isConversationStarted && onToggleGame && (
+                  <button
+                    onClick={onToggleGame}
+                    title={isGameOpen ? "Đóng GAME" : "Mở GAME"}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "22px",
+                      padding: "0 8px",
+                      boxSizing: "border-box",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      letterSpacing: "0.5px",
+                      border: "1px solid rgba(128, 128, 128, 0.2)",
+                      background: isGameOpen
+                        ? "rgba(128, 128, 128, 0.28)"
+                        : "rgba(128, 128, 128, 0.12)",
+                      color: "var(--vscode-foreground)",
+                      opacity: isGameOpen ? 1 : 0.75,
+                      transition: "all 0.15s ease-in-out",
+                    }}
+                  >
+                    GAME
+                  </button>
                 )}
 
                 <div
@@ -2293,57 +2129,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   alignItems: "center",
                 }}
               >
-                {/* Rule Badge — hiển thị rule đang gắn kèm, cạnh badge token */}
-                {(() => {
-                  const activeRule = attachedItems?.find(
-                    (i: any) => i.type === "rule",
-                  );
-                  if (!activeRule) return null;
-                  return (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        padding: "4px 8px",
-                        borderRadius: "var(--border-radius)",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        color: "#facc15",
-                        backgroundColor:
-                          "color-mix(in srgb, #facc15 12%, transparent)",
-                        whiteSpace: "nowrap",
-                      }}
-                      title={`Rule: ${activeRule.path}`}
-                    >
-                      <span
-                        style={{
-                          maxWidth: "120px",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {activeRule.path}
-                      </span>
-                      {onRemoveAttachedItem && (
-                        <span
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveAttachedItem(activeRule.id);
-                          }}
-                          style={{
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          <X size={11} strokeWidth={2.5} />
-                        </span>
-                      )}
-                    </div>
-                  );
-                })()}
-
                 {/* Workspace zip-size badge — chỉ hiện khi provider có anti-injection flag = true */}
                 {isAntiInjectionProvider && (
                   <ClaudeZipBadge state={zipSizeState} />

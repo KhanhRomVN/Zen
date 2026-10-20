@@ -1,7 +1,6 @@
 import React from "react";
 
 // HOOKS
-import { useSettings } from "../../../../../../context/SettingsContext";
 
 // SERVICES
 import { extensionService } from "../../../../../../services/ExtensionService";
@@ -19,7 +18,6 @@ import { ToolAction } from "../../../../services/ResponseParser";
 import { Message } from "../../../../types/message";
 
 // UTILS
-import { getPermissionDecision } from "../../../../utils/permissionUtils";
 
 // ICONS
 import { ShieldAlert } from "lucide-react";
@@ -28,7 +26,6 @@ import { getFolderIconPath } from "@/utils/fileIconMapper";
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
 import { TerminalBlock } from "../blocks/run_command/TerminalBlock";
-import ActionBar from "../ActionBar";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
 interface RunCommandRendererProps {
@@ -86,7 +83,6 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isRejectedLocal, setIsRejectedLocal] = React.useState(false);
-  const { permissionMode } = useSettings();
   const actionId = `${messageId}-action-${actionIndex}`;
   const outputData = toolOutputs?.[actionId];
 
@@ -111,8 +107,6 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
   // Check if action has validation error
   const hasValidationError = !!action.isError;
 
-  const needsPrompt =
-    getPermissionDecision(permissionMode, "run_command") === "confirm";
   const commandText = action.params.command || "";
 
   const folderPath =
@@ -481,33 +475,6 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
             </div>
           )}
 
-          {/* 4. Default ActionBar (Hidden if dangerousCommand is active/pending) */}
-          {!dangerousCommand && needsPrompt &&
-            !isTerminalBusy &&
-            !isCompleted &&
-            !hasValidationError && (
-              <ActionBar
-                action={action}
-                messageId={messageId}
-                actionIndex={actionIndex}
-                hasError={hasValidationError}
-                isCompleted={isCompleted}
-                isLoading={isLoading}
-                onAction={(e, type) => {
-                  if (!isCompleted && !isLoading) {
-                    onToolClick(
-                      {
-                        ...action,
-                        params: { ...action.params, terminal_id: terminalId },
-                      },
-                      messageId,
-                      actionIndex,
-                      type,
-                    );
-                  }
-                }}
-              />
-            )}
         </>
       )}
       {hasValidationError && action.errorMessage && (

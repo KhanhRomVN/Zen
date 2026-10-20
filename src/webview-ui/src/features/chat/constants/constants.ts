@@ -1,8 +1,5 @@
-import React from "react";
-import { Zap, ShieldCheck } from "lucide-react";
+
 import type {
-  PermissionMode,
-  PermissionValue,
   TagCategory,
   TagDefinition,
   ToolType,
@@ -12,8 +9,6 @@ import type {
 
 // Re-export types for backward compatibility
 export type {
-  PermissionMode,
-  PermissionValue,
   TagCategory,
   TagDefinition,
   ToolType,
@@ -79,24 +74,6 @@ export const TERMINAL_STATUS = {
 export type TerminalStatus =
   (typeof TERMINAL_STATUS)[keyof typeof TERMINAL_STATUS];
 
-// ===== PERMISSION MODE METADATA =====
-export const PERMISSION_MODE: Record<
-  string,
-  { label: string; desc: string; icon: React.ReactNode; color: string }
-> = {
-  fullAccess: {
-    label: "Full Access",
-    desc: "AI has unrestricted access to all project files and tools",
-    icon: React.createElement(Zap, { size: 11 }),
-    color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)",
-  },
-  approval: {
-    label: "Approval Required",
-    desc: "AI must request explicit approval before accessing files or running commands",
-    icon: React.createElement(ShieldCheck, { size: 11 }),
-    color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)",
-  },
-};
 
 // ============= UNIFIED TAG REGISTRY =============
 export const TAG_REGISTRY: Record<string, TagDefinition> = {
@@ -106,10 +83,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "READ",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
     features: {
       showFileStats: true,
     },
@@ -120,10 +93,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "WRITE",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "confirm",
-      fullAccess: "allow",
-    },
     features: {
       showFileStats: true,
       isFileMutation: true,
@@ -135,10 +104,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "UPDATE",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "confirm",
-      fullAccess: "allow",
-    },
     features: {
       validateFuzzyMatch: true,
       isFileMutation: true,
@@ -150,10 +115,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "REVERT",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "confirm",
-      fullAccess: "allow",
-    },
     features: {
       isFileMutation: true,
     },
@@ -164,10 +125,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "HISTORY REPLACE",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
   },
 
   list_files: {
@@ -175,10 +132,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "LIST",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
   },
 
   find_files: {
@@ -186,10 +139,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "FIND",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
   },
 
   grep: {
@@ -197,10 +146,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "GREP",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
   },
 
   delete_file: {
@@ -208,10 +153,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "DELETE",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "confirm",
-      fullAccess: "allow",
-    },
   },
 
   run_command: {
@@ -219,10 +160,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "EXECUTE",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "confirm",
-      fullAccess: "allow",
-    },
   },
 
   git_status: {
@@ -230,10 +167,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "GIT STATUS",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
   },
 
   commit_message: {
@@ -241,10 +174,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "COMMIT MESSAGE",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
   },
 
   git_diff: {
@@ -252,10 +181,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "DIFF",
     category: "tool",
     timeout: 60000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
   },
 
   read_skill: {
@@ -263,10 +188,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "READ SKILL",
     category: "tool",
     timeout: 20000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
   },
 
 
@@ -275,10 +196,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "READ MEMORY",
     category: "tool",
     timeout: 30000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
   },
 
   update_memory: {
@@ -286,10 +203,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     title: "UPDATE MEMORY",
     category: "tool",
     timeout: 30000,
-    permissions: {
-      approval: "allow",
-      fullAccess: "allow",
-    },
   },
 
   conversation_title: {
@@ -334,19 +247,6 @@ export const getAllToolTypes = (): string[] => {
     .map(([key]) => key);
 };
 
-/**
- * Kiểm tra xem tool có yêu cầu xác nhận hay không dựa trên permission mode hiện tại
- */
-export const requiresConfirmation = (
-  type: string,
-  mode: "approval" | "fullAccess" = "approval",
-): boolean => {
-  const tag = getTagDef(type);
-  if (!tag || tag.category !== "tool" || !tag.permissions) return false;
-
-  const permission = tag.permissions[mode];
-  return permission === "confirm";
-};
 
 // ============= HELPER FUNCTIONS FOR FILE STATS =============
 

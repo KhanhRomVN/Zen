@@ -5,10 +5,6 @@
  * Extracted from constants.ts for better separation of concerns.
  */
 
-// ============= PERMISSION TYPES =============
-
-export type PermissionMode = "fullAccess" | "approval";
-export type PermissionValue = "allow" | "confirm" | "reject" | RegExp;
 
 // ============= TAG TYPES =============
 
@@ -19,11 +15,6 @@ export interface TagDefinition {
   title?: string | null;
   category: TagCategory;
 
-  // Only tools have permissions
-  permissions?: {
-    approval: PermissionValue;
-    fullAccess: PermissionValue;
-  };
 
   timeout?: number;
 

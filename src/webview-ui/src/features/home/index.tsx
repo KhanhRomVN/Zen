@@ -41,9 +41,7 @@ import { extensionService } from "../../services/ExtensionService";
 import UsageChart from "./components/UsageChart";
 import HistoryConversation from "./components/HistoryConversation";
 import { ConversationItem } from "../history/types";
-import ConnectionErrorBanner from "./components/ConnectionErrorBanner";
-import AIWeb2APIUpdateBanner from "./components/AIWeb2APIUpdateBanner";
-import ZenUpdateBanner from "./components/ZenUpdateBanner";
+import HomeBanner from "./components/HomeBanner";
 import { useZenUpdate } from "./hooks/useZenUpdate";
 
 import {
@@ -84,7 +82,11 @@ const DashboardStats = React.memo(
     statsPeriod: import("./hooks/useStatsPeriod").StatsPeriod;
     conversations: ConversationItem[];
     isLoadingConversations: boolean;
-    onLoadConversation?: (conversationId: string, tabId: number, folderPath: string | null) => void;
+    onLoadConversation?: (
+      conversationId: string,
+      tabId: number,
+      folderPath: string | null,
+    ) => void;
   }) => {
     const renderCountRef = React.useRef(0);
     renderCountRef.current++;
@@ -164,6 +166,7 @@ interface HomePanelProps {
     folderPath: string | null,
   ) => void;
   initialValue?: string;
+  onOpenAccounts?: () => void;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────
@@ -171,6 +174,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
   onSendMessage,
   onLoadConversation,
   initialValue,
+  onOpenAccounts,
 }) => {
   // ── State ─
 
@@ -194,6 +198,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
   const [totalAccounts, setTotalAccounts] = useState<number>(
     initialCache.global?.totalAccounts ?? 0,
   );
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
   const [modelDistribution, setModelDistribution] = useState<
     {
       model_id: string;
@@ -216,7 +221,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
   // ── Per-conversation feature toggles (default from global settings) ──
   const {
     apiUrl,
-    activeDatabaseManagerId,
     diagnosticEnabled: globalDiagnosticEnabled,
     setDiagnosticEnabled,
     useSkillEnabled: globalUseSkillEnabled,
@@ -271,10 +275,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
   }, [globalMemoryEnabled]);
 
   const dbHeaders = () => {
-    const h: Record<string, string> = {};
-    if (activeDatabaseManagerId)
-      h["x-database-manager-id"] = activeDatabaseManagerId;
-    return h;
+    return {};
   };
 
   const folderPath = (window as any).__zenWorkspaceFolderPath as
@@ -594,6 +595,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
             setTotalAccounts(
               accs.data.total ?? accs.data.accounts?.length ?? 0,
             );
+            setAccountsLoaded(true);
           }
         }
         if (providersRes.ok) {
@@ -689,25 +691,24 @@ const HomePanel: React.FC<HomePanelProps> = ({
             }}
           >
             <div className="zen-home-grid">
-              <div className="zen-home-header">
+              <div
+                className="zen-home-header"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "16px",
+                }}
+              >
                 <HomeHeader imagesUri={imagesUri} />
+                <HomeBanner
+                  isConnected={isConnected}
+                  zenUpdateInfo={zenUpdateInfo}
+                  apiUpdateInfo={updateInfo}
+                  totalAccounts={totalAccounts}
+                  accountsLoaded={accountsLoaded}
+                  onOpenAccounts={onOpenAccounts}
+                />
               </div>
-
-              {/* Banners rendered directly as grid items if needed, or wrapped conditionally */}
-              {(isConnected || zenUpdateInfo || updateInfo) && (
-                <div
-                  style={{
-                    gridColumn: "1 / -1",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "8px",
-                  }}
-                >
-                  <ConnectionErrorBanner isConnected={isConnected} />
-                  <ZenUpdateBanner updateInfo={zenUpdateInfo} />
-                  <AIWeb2APIUpdateBanner updateInfo={updateInfo} />
-                </div>
-              )}
 
               <DashboardStats
                 todayTokens={todayTokens}

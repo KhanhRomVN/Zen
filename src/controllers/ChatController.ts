@@ -56,7 +56,7 @@ import { GrepHandler } from "../handlers/tool/GrepHandler";
 import { SkillAPIHandler } from "../handlers/tool/SkillAPIHandler";
 import { SkillInstallHandler } from "../handlers/tool/SkillInstallHandler";
 import { SkillWorkspaceStateHandler } from "../handlers/tool/SkillWorkspaceStateHandler";
-import { RuleHandler } from "../handlers/tool/RuleHandler";
+
 import { MemoryHandler } from "../handlers/tool/MemoryHandler";
 import { AgentsMdHandler } from "../handlers/tool/AgentsMdHandler";
 import { WorkspaceZipHandler } from "../handlers/system/WorkspaceZipHandler";
@@ -112,7 +112,7 @@ export class ChatController {
   private skillAPIHandler: SkillAPIHandler;
   private skillInstallHandler: SkillInstallHandler;
   private skillWorkspaceStateHandler: SkillWorkspaceStateHandler;
-  private ruleHandler: RuleHandler;
+
   private memoryHandler: MemoryHandler;
   private workspaceZipHandler: WorkspaceZipHandler;
   private workbenchLayoutHandler: WorkbenchLayoutHandler;
@@ -170,7 +170,7 @@ export class ChatController {
     this.skillWorkspaceStateHandler = new SkillWorkspaceStateHandler(
       this.extContext,
     );
-    this.ruleHandler = new RuleHandler();
+
     this.memoryHandler = new MemoryHandler();
     this.workspaceZipHandler = new WorkspaceZipHandler();
     this.workbenchLayoutHandler = new WorkbenchLayoutHandler();
@@ -515,10 +515,7 @@ export class ChatController {
             diagnosticEnabled: message.diagnosticEnabled,
           });
           break;
-        case "listRules":
-        case "createRule":
-          await this.ruleHandler.handleRuleOperation(message, webviewView);
-          break;
+
         case "zipWorkspace":
           await this.workspaceZipHandler.handleZipWorkspace(message, webviewView);
           break;

@@ -127,4 +127,8 @@ export interface ExtendedChatBodyProps extends ChatBodyProps {
   >;
   onProceedDangerousCommand?: (actionId: string) => void;
   onCancelDangerousCommand?: (actionId: string) => void;
+  /** Overlay GAME đang mở. */
+  isGameOpen?: boolean;
+  /** Đóng overlay GAME. */
+  onCloseGame?: () => void;
 }

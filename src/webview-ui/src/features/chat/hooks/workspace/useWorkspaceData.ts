@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Rule, WorkspaceItem } from "../../types/workspace";
+import { WorkspaceItem } from "../../types/workspace";
 
 export const useWorkspaceData = () => {
   const renderCountRef = useRef(0);
@@ -10,7 +10,7 @@ export const useWorkspaceData = () => {
 
   const [availableFiles, setAvailableFiles] = useState<WorkspaceItem[]>([]);
   const [availableFolders, setAvailableFolders] = useState<WorkspaceItem[]>([]);
-  const [availableRules, setAvailableRules] = useState<Rule[]>([]);
+
 
   // Listen for workspace files/folders responses from extension
   useEffect(() => {
@@ -43,21 +43,8 @@ export const useWorkspaceData = () => {
     };
   }, []);
 
-  // Load rules from localStorage
-  useEffect(() => {
-    const stored = localStorage.getItem("zen-rules");
-
-    if (stored) {
-      try {
-        const rules = JSON.parse(stored);
-        setAvailableRules(rules);
-      } catch (error) {}
-    }
-  }, []);
-
   return {
     availableFiles,
     availableFolders,
-    availableRules,
   };
 };

@@ -79,6 +79,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onClearInitialData,
 }) => {
   // Per-conversation overrides restored from saved metadata
+  const [isGameOpen, setIsGameOpen] = useState(false);
+
   const [restoredConversationOverrides, setRestoredConversationOverrides] =
     useState<
       | {
@@ -455,18 +457,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       removeAttachedItemFromCache(itemId);
     },
     [removeAttachedItem, removeAttachedItemFromCache],
-  );
-
-  // Chỉ gắn được 1 rule tại một thời điểm: gỡ rule cũ (nếu có) trước khi gắn rule mới.
-  const handleSelectRule = useCallback(
-    (item: any) => {
-      const existingRule = attachedItems.find((i: any) => i.type === "rule");
-      if (existingRule) {
-        handleRemoveAttachedItem(existingRule.id);
-      }
-      addAttachedItemWithCache(item);
-    },
-    [attachedItems, handleRemoveAttachedItem, addAttachedItemWithCache],
   );
 
   // --- Wrapped Send Message ---
@@ -1180,6 +1170,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         dangerousCommands={dangerousCommands}
         onProceedDangerousCommand={proceedDangerousCommand}
         onCancelDangerousCommand={cancelDangerousCommand}
+        isGameOpen={isGameOpen}
+        onCloseGame={() => setIsGameOpen(false)}
       />
       {/* ─── ChatFooter ─── */}
       <ChatFooter
@@ -1231,7 +1223,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onRevertConversation={handleRevertConversation}
         autoScrollPaused={autoScrollPaused}
         scrollToBottom={scrollToBottomRef.current || undefined}
-        onSelectRule={handleSelectRule}
         onSelectSkills={(items) => {
           attachedItems
             .filter((i: any) => i.type === "skill")
@@ -1240,6 +1231,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }}
         conversationToolFormat={conversationToolFormat}
         onConversationToolFormatToggle={handleToolFormatToggle}
+        isGameOpen={isGameOpen}
+        onToggleGame={() => setIsGameOpen((v) => !v)}
       />
       <GitRepoPickerDrawer
         isOpen={gitRepoPickerOpen}

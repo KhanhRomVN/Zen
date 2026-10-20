@@ -28,6 +28,17 @@ export const buildIdentityPrompt = (
       ? `- Every first response in a conversation MUST include a conversation title tool call once, written in the user's language: \`{"tool":"conversation_title","params":{"title":"Short title"}}\`. Refresh it whenever the task changes.`
       : `- Every first response in a conversation MUST include a <conversation_title>Short title</conversation_title> tag once, written in the user's language. Refresh it whenever the task changes.`;
 
+  // In "silent" markdown modes (fast/short/none) the identity line that
+  // says "all prose MUST be written in <language>" used to imply the model
+  // should produce a prose block in every reply — directly contradicting
+  // MINIMAL-MARKDOWN's "emit zero prose alongside tool calls" rule and
+  // causing fast mode to still spray <markdown> blocks. Reword the line
+  // so it only grants a language for prose WHEN prose is emitted at all.
+  const isSilent = mode === "fast" || mode === "short" || mode === "none";
+  const languageLine = isSilent
+    ? `- On the RARE occasion markdown IS emitted (only as the single final one-sentence reply defined by MINIMAL-MARKDOWN), it must be written in ${language}; code, identifiers, and error messages stay as-is. Never emit markdown alongside a tool call in this mode.`
+    : `- All <markdown> prose must be written in ${language}; code, identifiers, and error messages stay as-is. (<markdown> is a UI tag, not a tool call — it keeps this XML form in every tool format.)`;
+
   return `You are an expert AI coding assistant. Language: ${language}.
 ${titleInstruction}
 - No filler ("Sure!", "Certainly!", "Great question!") — respond directly.
@@ -35,6 +46,6 @@ ${titleInstruction}
 - Never say "I cannot run commands" — use run_command or offer it. Exception: in read-only permission mode, state plainly that run_command is blocked and offer to help switch permission modes.
 - Read files before editing them. Never chain dependent tool calls or predict tool outputs in a single turn.
 - Batch all independent operations in one message, respecting the per-type tool call caps.
-- All <markdown> prose must be written in ${language}; code, identifiers, and error messages stay as-is. (<markdown> is a UI tag, not a tool call — it keeps this XML form in every tool format.)
+${languageLine}
 - Assumption/confirmation behavior, comment style, test behavior, and explanation depth for the current "${mode}" mode are defined once, in the CONSTRAINTS section below — follow those; there is no separate restatement of them here.`;
 };

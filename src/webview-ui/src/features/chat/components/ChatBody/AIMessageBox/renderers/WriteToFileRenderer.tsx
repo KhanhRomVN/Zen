@@ -1,7 +1,6 @@
 import React from "react";
 
 // HOOKS
-import { useSettings } from "@/context/SettingsContext";
 
 // SERVICES
 import { extensionService } from "@/services/ExtensionService";
@@ -21,14 +20,12 @@ import {
   collectConvFilePaths,
   getNextUserMessage,
 } from "../../../../utils/renderer-utils";
-import { getPermissionDecision } from "@/features/chat/utils/permissionUtils";
 
 // ICONS
 import { getFileIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
-import ActionBar from "../ActionBar";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import { CodeBlock } from "../blocks/code/CodeBlock";
 // FileStreamingBlock removed - no longer used (isPartial is false)
@@ -89,7 +86,6 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
   const [cachedDiagnostics, setCachedDiagnostics] = React.useState<
     Diagnostic[] | null
   >(null);
-  const { permissionMode } = useSettings();
 
   const actionId = `${messageId}-action-${actionIndex}`;
   const rawPath = action.params.file_path || action.params.path || "";
@@ -208,12 +204,6 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
 
   // Check if action has validation error
   const hasValidationError = !!action.isError;
-
-  // Debug logs
-  const permissionDecision = getPermissionDecision(
-    permissionMode,
-    "write_to_file",
-  );
 
   const handleToolClickWithLog = React.useCallback(
     (e: React.MouseEvent, type: any) => {
@@ -372,23 +362,6 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
         }}
       />
 
-      {/* Show code content in approval mode — only when not completed */}
-      {(() => {
-        const permissionDecision = getPermissionDecision(
-          permissionMode,
-          "write_to_file",
-        );
-        const shouldShowCode = !isCompleted && permissionDecision === "confirm";
-        const contentLength = (action.params.content || "").length;
-
-        return shouldShowCode ? (
-          <CodeBlock
-            code={action.params.content || ""}
-            language={getLanguageFromPath(rawPath)}
-            maxHeight="400px"
-          />
-        ) : null;
-      })()}
 
       {/* Single-line review UI for write_to_file with content crammed into 1 line */}
       {!shouldHideContent &&
@@ -553,20 +526,6 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
         </div>
       )}
 
-      {!shouldHideContent &&
-        !isCompleted &&
-        !isPartial &&
-        getPermissionDecision(permissionMode, "write_to_file") ===
-          "confirm" && (
-          <ActionBar
-            action={action}
-            messageId={messageId}
-            actionIndex={actionIndex}
-            hasError={hasValidationError || isError}
-            isCompleted={isCompleted}
-            onAction={handleToolClickWithLog}
-          />
-        )}
     </div>
   );
 };

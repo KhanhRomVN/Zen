@@ -4,7 +4,6 @@ import type {
   SystemPromptMode,
   PromptLengthMode,
 } from "@/features/chat/prompts";
-import { PermissionMode } from "@/features/chat/types/tag-types";
 
 interface SettingsContextType {
   aiLanguage: string;
@@ -13,8 +12,6 @@ interface SettingsContextType {
   setCommitMessageLanguage: (lang: string) => void;
   apiUrl: string;
   setApiUrl: (url: string) => void;
-  permissionMode: PermissionMode;
-  setPermissionMode: (mode: PermissionMode) => void;
   liveWritePreview: boolean;
   setLiveWritePreview: (value: boolean) => void;
   systemPromptMode: SystemPromptMode;
@@ -27,9 +24,6 @@ interface SettingsContextType {
   /** Relative path từ [profile_email]/ tới folder chứa Default/. Rỗng = cấu trúc mặc định. */
   chromiumProfileSubpath: string;
   setChromiumProfileSubpath: (subpath: string) => void;
-  /** ID của database manager đang được chọn cho workspace hiện tại */
-  activeDatabaseManagerId: string | null;
-  setActiveDatabaseManagerId: (id: string | null) => void;
   /** Tự động tạo checkpoint trước khi write/replace/delete file */
   checkpointEnabled: boolean;
   setCheckpointEnabled: (value: boolean) => void;
@@ -71,8 +65,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       return "en";
     });
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
-  const [permissionModeState, setPermissionModeState] =
-    useState<PermissionMode>("fullAccess");
   const [liveWritePreview, setLiveWritePreviewState] = useState<boolean>(true);
   const [systemPromptModeState, setSystemPromptModeState] =
     useState<SystemPromptMode>(() => {
@@ -82,12 +74,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
           saved === "fast" ||
           saved === "balanced" ||
           saved === "thorough" ||
-          saved === "autopilot" ||
           saved === "short" ||
           saved === "none"
         ) {
           return saved;
         }
+        // Legacy: "autopilot" was removed as a mode; fall back to "balanced".
+        if (saved === "autopilot") return "balanced";
       } catch (e) {}
       return "balanced";
     });
@@ -153,15 +146,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
 
-  const [activeDatabaseManagerId, setActiveDatabaseManagerIdState] = useState<string | null>(
-    () => {
-      try {
-        return localStorage.getItem(workspaceKey("zen_active_db_manager"));
-      } catch {
-        return null;
-      }
-    },
-  );
   useEffect(() => {
     const storage = extensionService.getStorage();
 
@@ -171,11 +155,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     });
 
-    storage.get("zen_permission_mode").then((res: any) => {
-      if (res?.value) {
-        setPermissionModeState(res.value);
-      }
-    });
+
   }, []);
 
   // Đồng bộ cờ checkpoint/diagnostic sang extension host (FeatureSettingsService)
@@ -235,12 +215,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     setApiUrlState(url);
     const storage = extensionService.getStorage();
     storage.set("backend-api-url", url);
-  };
-
-  const setPermissionMode = (mode: PermissionMode) => {
-    setPermissionModeState(mode);
-    const storage = extensionService.getStorage();
-    storage.set("zen_permission_mode", mode);
   };
 
   const setLiveWritePreview = (value: boolean) => {
@@ -350,32 +324,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 
 
 
-  const setActiveDatabaseManagerId = (id: string | null) => {
-    const previousId = activeDatabaseManagerId;
-    setActiveDatabaseManagerIdState(id);
-    try {
-      const key = workspaceKey("zen_active_db_manager");
-      if (id) {
-        localStorage.setItem(key, id);
-      } else {
-        localStorage.removeItem(key);
-      }
-    } catch (e) {}
-
-    // Đổi sang database khác → xóa cache provider/model/account đang dùng
-    // của workspace (localStorage + extension storage), tránh MessageInput
-    // tự nạp lại lựa chọn thuộc về database trước đó.
-    if (previousId !== id) {
-      try {
-        const wp = (window as any).__zenWorkspaceFolderPath as string | null;
-        const modelSelectionKey = `zen-model-selection:${wp || "global"}`;
-        localStorage.removeItem(modelSelectionKey);
-        const storage = extensionService.getStorage();
-        storage.delete(modelSelectionKey).catch(() => {});
-      } catch (e) {}
-    }
-  };
-
   return (
     <SettingsContext.Provider
       value={{
@@ -385,8 +333,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setCommitMessageLanguage,
         apiUrl,
         setApiUrl,
-        permissionMode: permissionModeState,
-        setPermissionMode,
         liveWritePreview,
         setLiveWritePreview,
         systemPromptMode: systemPromptModeState,
@@ -397,8 +343,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setChromiumProfileDir,
         chromiumProfileSubpath,
         setChromiumProfileSubpath,
-        activeDatabaseManagerId,
-        setActiveDatabaseManagerId,
         checkpointEnabled,
         setCheckpointEnabled,
         diagnosticEnabled,

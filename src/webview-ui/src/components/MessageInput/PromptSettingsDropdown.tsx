@@ -15,7 +15,7 @@
  */
 
 import React, { useState } from "react";
-import { Ban, Stethoscope, Sparkles, Brain, Code2, Check } from "lucide-react";
+import { Ban, Stethoscope, Sparkles, Brain, Code2, Check, Zap } from "lucide-react";
 import type { SystemPromptMode } from "../../features/chat/prompts";
 import { Dropdown, DropdownTrigger, DropdownContent } from "../ui/Dropdown";
 import {
@@ -45,8 +45,8 @@ export const STYLE_CODE_MODE_META: StyleCodeModeMeta[] = [
     key: "fast",
     label: "Fast",
     desc: "Minimal confirmations, quick edits",
-    color: "#ef4444",
-    icon: <Ban size={14} />,
+    color: "#f59e0b",
+    icon: <Zap size={14} />,
   },
   {
     key: "balanced",
@@ -61,13 +61,6 @@ export const STYLE_CODE_MODE_META: StyleCodeModeMeta[] = [
     desc: "Extensive checks, detailed explanations",
     color: "#a855f7",
     icon: <Sparkles size={14} />,
-  },
-  {
-    key: "autopilot",
-    label: "Autopilot",
-    desc: "Almost no confirmations, autonomous execution",
-    color: "#22c55e",
-    icon: <Brain size={14} />,
   },
 ];
 

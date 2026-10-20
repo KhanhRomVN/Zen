@@ -3,6 +3,7 @@ import ChatPanel from "./features/chat";
 import HomePanel from "./features/home";
 import HistoryPanel from "./features/history";
 import SettingsPanel from "./features/setting";
+import WelcomeScreen from "./features/welcome/WelcomeScreen";
 import AccountPanel from "./features/account";
 import MarketplacePanel from "./features/marketplace";
 import "./styles/components/chat.css";
@@ -40,6 +41,7 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const [showWelcome, setShowWelcome] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAccounts, setShowAccounts] = useState(false);
@@ -177,6 +179,9 @@ const App: React.FC = () => {
         <BackendConnectionProvider>
           <ProjectProvider>
             <div className="app-container">
+              {showWelcome && (
+                <WelcomeScreen onDone={() => setShowWelcome(false)} />
+              )}
               {currentChat && (
                 <ChatPanel
                   currentChat={currentChat}
@@ -191,6 +196,7 @@ const App: React.FC = () => {
                   onSendMessage={handleHomeSendMessage}
                   onLoadConversation={handleLoadConversation}
                   initialValue={homeInitialValue}
+                  onOpenAccounts={() => setShowAccounts(true)}
                 />
               )}
               <HistoryPanel

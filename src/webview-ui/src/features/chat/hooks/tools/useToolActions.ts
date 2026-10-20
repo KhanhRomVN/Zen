@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ToolAction } from "../../services/ResponseParser";
 import { Message } from "../../types/message";
-import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "./useToolExecution";
 import { isToolClickable, TOOL_ACTION_TYPES } from "../../constants/constants";
 import { isQuestionFullyAnswered } from "../../utils/questionUtils";
@@ -30,7 +29,6 @@ export const useToolActions = ({
   isProcessing = false,
   isRestored = false,
 }: UseToolActionsProps) => {
-  const { permissionMode } = useSettings();
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
   const [failedActions, setFailedActions] = useState<Set<string>>(new Set());
   const [rejectedActions, setRejectedActions] = useState<Set<string>>(
@@ -217,27 +215,19 @@ export const useToolActions = ({
         }
       }
     },
-    [onSendToolRequest, onToolAction, clickedActions, permissionMode],
+    [onSendToolRequest, onToolAction, clickedActions],
   );
 
   // Auto-execute tools logic
   const prevParsedLengthRef = useRef(0);
-  const prevPermissionModeRef = useRef(permissionMode);
 
   useEffect(() => {
-    // Check if permission mode changed
-    const permissionModeChanged =
-      prevPermissionModeRef.current !== permissionMode;
-    if (permissionModeChanged) {
-      prevPermissionModeRef.current = permissionMode;
-    }
-
-    // Only run when parsedMessages actually changes (new message or new actions) OR permission mode changes
+    // Only run when parsedMessages actually changes (new message or new actions)
     const currentLength = parsedMessages.length;
     const lengthUnchanged = currentLength === prevParsedLengthRef.current;
 
-    if (lengthUnchanged && !permissionModeChanged && !isProcessing) {
-      // No new messages and permission unchanged, skip
+    if (lengthUnchanged && !isProcessing) {
+      // No new messages, skip
       return;
     }
     prevParsedLengthRef.current = currentLength;
@@ -317,7 +307,7 @@ export const useToolActions = ({
       }
 
       // Check if settings specify this tool runs auto or deny
-      const decision = getPermissionDecision(permissionMode, action.type);
+      const decision = getPermissionDecision(action.type);
       if (decision === "allow" || decision === TOOL_ACTION_TYPES.REJECT) {
         // Collect for batch update
         actionsToMarkTriggered.push(actionId);
@@ -369,7 +359,6 @@ export const useToolActions = ({
     onSendToolRequest,
     clickedActions,
     failedActions,
-    permissionMode,
     isProcessing,
     isRestored,
   ]);
