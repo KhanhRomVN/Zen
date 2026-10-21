@@ -710,7 +710,10 @@
         <div class="w">
           <div class="hg">
             <div>
-              <span class="pill"><i></i>Open source · MIT · v2.3.2</span>
+              <span class="pill"
+                ><i></i>Open source · MIT ·
+                <span class="ver">latest</span></span
+              >
               <h1>Free AI Chat<br />For <span class="gr">ALL LLM.</span></h1>
               <p class="lead">
                 A powerful AI agent living inside VS Code. For developers who
@@ -722,20 +725,21 @@
               <div class="cta">
                 <a
                   class="btn pr"
-                  href="https://marketplace.visualstudio.com/search?term=Zen%20KhanhRomVN&target=VSCode&category=All%20categories&sortBy=Relevance"
+                  href="https://marketplace.visualstudio.com/items?itemName=khanhromvn.khanhromvn-zen"
                   target="_blank"
                   rel="noopener"
                   >Install from VS Code Marketplace</a
                 ><a
-                  class="btn"
-                  href="https://github.com/KhanhRomVN/Zen"
+                  class="btn vsix"
+                  href="https://github.com/KhanhRomVN/Zen/releases/latest"
                   target="_blank"
                   rel="noopener"
-                  >View on GitHub</a
+                  >Download</a
                 >
               </div>
               <p class="note">
-                No subscription. No lock-in. Requires VS Code ^1.84.0.
+                No subscription. No lock-in. Requires VS Code ^1.84.0. Latest
+                release: <span class="ver">see GitHub</span>.
               </p>
             </div>
             <div class="dash rv" aria-hidden="true">
@@ -1001,20 +1005,21 @@
             <div class="cta">
               <a
                 class="btn pr"
-                href="https://marketplace.visualstudio.com/search?term=Zen%20KhanhRomVN&target=VSCode&category=All%20categories&sortBy=Relevance"
+                href="https://marketplace.visualstudio.com/items?itemName=khanhromvn.khanhromvn-zen"
                 target="_blank"
                 rel="noopener"
                 >Install from VS Code Marketplace</a
               ><a
-                class="btn"
-                href="https://github.com/KhanhRomVN/Zen"
+                class="btn vsix"
+                href="https://github.com/KhanhRomVN/Zen/releases/latest"
                 target="_blank"
                 rel="noopener"
-                >View on GitHub</a
+                >Download</a
               >
             </div>
             <div class="cp mono">
-              <code id="cl">git clone https://github.com/KhanhRomVN/Zen</code
+              <code id="cl"
+                >code --install-extension khanhromvn-zen-x.y.z.vsix</code
               ><button class="btn sm" id="cb" aria-label="Copy command">
                 Copy
               </button>
@@ -1086,6 +1091,11 @@
                 target="_blank"
                 rel="noopener"
                 >GitHub</a
+              ><a
+                href="https://github.com/KhanhRomVN/Zen/releases"
+                target="_blank"
+                rel="noopener"
+                >Releases</a
               >
             </div>
           </div>
@@ -1173,6 +1183,34 @@
         $("#cb").textContent = "Copied";
         setTimeout(() => ($("#cb").textContent = "Copy"), 1400);
       };
+
+      (async () => {
+        try {
+          let d;
+          try {
+            d = JSON.parse(sessionStorage.getItem("zr"));
+          } catch (e) {}
+          if (!d) {
+            const r = await fetch(
+              "https://api.github.com/repos/KhanhRomVN/Zen/releases/latest",
+            );
+            if (!r.ok) return;
+            d = await r.json();
+            try {
+              sessionStorage.setItem("zr", JSON.stringify(d));
+            } catch (e) {}
+          }
+          const a = (d.assets || []).find((x) => /\.vsix$/i.test(x.name));
+          if (!a) return;
+          $$(".vsix").forEach((e) => {
+            e.href = a.browser_download_url;
+            e.removeAttribute("target");
+            e.textContent = "Download";
+          });
+          $$(".ver").forEach((e) => (e.textContent = d.tag_name));
+          $("#cl").textContent = "code --install-extension " + a.name;
+        } catch (e) {}
+      })();
     </script>
   </body>
 </html>
