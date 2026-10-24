@@ -26,8 +26,6 @@ import {
   Download,
   Filter,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   Users,
   Copy,
   RefreshCw,
@@ -62,6 +60,27 @@ import { FlatAccount } from "./types";
 import { getFaviconUrl } from "../../utils/favicon";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
+const CountBadge: React.FC<{ count: number }> = ({ count }) => (
+  <span
+    style={{
+      minWidth: "20px",
+      height: "18px",
+      padding: "0 6px",
+      borderRadius: "5px",
+      backgroundColor: "rgba(128,128,128,0.18)",
+      color: "var(--secondary-text)",
+      fontSize: "10px",
+      fontWeight: 600,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      boxSizing: "border-box",
+    }}
+  >
+    {count}
+  </span>
+);
+
 interface AccountPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -238,6 +257,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
   // ── Store ──
   const {
     accounts,
+    providerScopedAccounts,
     allAccounts,
     loading,
     providerConfigs,
@@ -381,15 +401,38 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
     });
   };
 
-  const handlePrevPage = () => {
-    if (pagination.page > 1) {
-      fetchAccounts(pagination.page - 1, pagination.limit);
-    }
-  };
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
+  const [refreshResults, setRefreshResults] = useState<
+    Record<string, { success: boolean; error?: string }>
+  >({});
 
-  const handleNextPage = () => {
-    if (pagination.page < pagination.total_pages) {
-      fetchAccounts(pagination.page + 1, pagination.limit);
+  const handleRefreshAll = async () => {
+    if (refreshingAll) return;
+    setRefreshingAll(true);
+    try {
+      const refreshable = accounts.filter(
+        (a) =>
+          providerConfigs.find((p) => p.provider_id === a.provider_id)
+            ?.can_refresh_token,
+      );
+      setRefreshingIds(new Set(refreshable.map((a) => a.id)));
+      const results: Record<string, { success: boolean; error?: string }> = {};
+      await Promise.all(
+        refreshable.map(async (a) => {
+          try {
+            results[a.id] = await refreshAccountToken(a.id, a.provider_id);
+          } catch (err: any) {
+            results[a.id] = { success: false, error: err?.message };
+          }
+        }),
+      );
+      setRefreshResults(results);
+      setTimeout(() => setRefreshResults({}), 3500);
+      await fetchAccounts(pagination.page, pagination.limit, true);
+    } finally {
+      setRefreshingIds(new Set());
+      setRefreshingAll(false);
     }
   };
 
@@ -602,7 +645,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 })()}
               </button>
             </DropdownTrigger>
-            <DropdownContent>
+            <DropdownContent hideScrollbar>
               <DropdownItem
                 icon={
                   <div
@@ -624,7 +667,10 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 }
                 onClick={() => setProviderFilter("")}
               >
-                All Providers [{accounts.length}]
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  All Providers
+                  <CountBadge count={providerScopedAccounts.length} />
+                </span>
               </DropdownItem>
               {sortedProviderConfigs.map((provider) => (
                 <DropdownItem
@@ -649,17 +695,46 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                   }
                   onClick={() => setProviderFilter(provider.provider_id)}
                 >
-                  {provider.provider_name} [
-                  {
-                    accounts.filter(
-                      (acc) => acc.provider_id === provider.provider_id,
-                    ).length
-                  }
-                  ]
+                  <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {provider.provider_name}
+                    <CountBadge
+                      count={
+                        providerScopedAccounts.filter(
+                          (acc) => acc.provider_id === provider.provider_id,
+                        ).length
+                      }
+                    />
+                  </span>
                 </DropdownItem>
               ))}
             </DropdownContent>
           </Dropdown>
+
+          <button
+            onClick={handleRefreshAll}
+            disabled={refreshingAll}
+            style={{
+              width: "34px",
+              height: "34px",
+              borderRadius: "8px",
+              backgroundColor: "var(--input-bg)",
+              border: "none",
+              color: "var(--secondary-text)",
+              cursor: refreshingAll ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              padding: 0,
+              opacity: refreshingAll ? 0.6 : 1,
+            }}
+            title="Refresh accounts"
+          >
+            <RefreshCw
+              size={16}
+              style={refreshingAll ? { animation: "importSpin 1s linear infinite" } : undefined}
+            />
+          </button>
 
           <button
             onClick={() => setDialogOpen(true)}
@@ -840,74 +915,13 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 (p) => p.provider_id === account.provider_id,
               )}
               statsPeriod={statsPeriod}
+              externalRefreshing={refreshingIds.has(account.id)}
+              externalRefreshResult={refreshResults[account.id] ?? null}
             />
           ))
         )}
       </div>
 
-      {/* Pagination */}
-      {pagination.total_pages > 1 && (
-        <div
-          style={{
-            padding: "12px 16px",
-            borderTop: "1px solid var(--border-color)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexShrink: 0,
-            backgroundColor: "var(--tertiary-bg)",
-          }}
-        >
-          <span style={{ fontSize: "11px", color: "var(--secondary-text)" }}>
-            {pagination.page} / {pagination.total_pages}
-          </span>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              onClick={handlePrevPage}
-              disabled={pagination.page === 1}
-              style={{
-                padding: "6px 12px",
-                borderRadius: "8px",
-                backgroundColor: "var(--input-bg)",
-                border: "1px solid var(--border-color)",
-                color: "var(--primary-text)",
-                cursor: pagination.page === 1 ? "not-allowed" : "pointer",
-                opacity: pagination.page === 1 ? 0.5 : 1,
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "12px",
-              }}
-            >
-              <ChevronLeft size={14} />
-              Previous
-            </button>
-            <button
-              onClick={handleNextPage}
-              disabled={pagination.page === pagination.total_pages}
-              style={{
-                padding: "6px 12px",
-                borderRadius: "8px",
-                backgroundColor: "var(--input-bg)",
-                border: "1px solid var(--border-color)",
-                color: "var(--primary-text)",
-                cursor:
-                  pagination.page === pagination.total_pages
-                    ? "not-allowed"
-                    : "pointer",
-                opacity: pagination.page === pagination.total_pages ? 0.5 : 1,
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "12px",
-              }}
-            >
-              Next
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-      )}
 
       <AddAccountDrawer
         open={dialogOpen}

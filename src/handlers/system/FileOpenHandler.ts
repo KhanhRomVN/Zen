@@ -158,6 +158,7 @@ export class FileOpenHandler {
   public async handleOpenBrowserWithProfile(message: any) {
     const url = message.url as string | undefined;
     const userDataDir = message.userDataDir as string | undefined;
+    const profileDirectory = message.profileDirectory as string | undefined;
 
     if (!url || typeof url !== "string") return;
 
@@ -195,6 +196,10 @@ export class FileOpenHandler {
         }
       } catch {}
       args.push(`--user-data-dir=${userDataDir}`);
+    }
+
+    if (profileDirectory && /^[\w .-]+$/.test(profileDirectory)) {
+      args.push(`--profile-directory=${profileDirectory}`);
     }
 
     args.push(url);

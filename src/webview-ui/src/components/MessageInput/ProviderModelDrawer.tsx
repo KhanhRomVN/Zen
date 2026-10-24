@@ -47,6 +47,7 @@ import type { FlatAccount } from "@/features/account/types";
 import { DEFAULT_EFFORT, EFFORT_LEVELS, splitModelAndEffort } from "./EffortDropdown";
 import type { EffortLevel } from "./EffortDropdown";
 import { accountsKey, cacheGet, cacheSet } from "./providerModelCache";
+import { compareAccountsByUsage } from "../../utils/accountSort";
 
 interface Provider {
   provider_id: string;
@@ -1414,7 +1415,8 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                     .sort(
                       (a, b) =>
                         Number(b.id === currentAccountId) -
-                        Number(a.id === currentAccountId),
+                          Number(a.id === currentAccountId) ||
+                        compareAccountsByUsage(a, b),
                     )
                     .map((acc) => {
                     const isCurrentAccount = acc.id === currentAccountId;

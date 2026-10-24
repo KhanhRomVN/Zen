@@ -28,6 +28,7 @@ export interface DropdownContentProps {
   children: React.ReactNode;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
+  hideScrollbar?: boolean;
 }
 
 export interface DropdownItemProps extends React.HTMLAttributes<HTMLDivElement> {
