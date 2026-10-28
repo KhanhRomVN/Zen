@@ -1,6 +1,5 @@
 import { buildPromptForMode } from "./prompt-modes";
 import type { SystemPromptMode, PromptModeConfig } from "./prompt-modes";
-import { buildProviderNotes } from "./provider-notes";
 
 export { buildIdentityPrompt } from "./identity";
 export { buildWorkflow } from "./workflow";
@@ -41,7 +40,5 @@ export const combinePromptsForMode = (
   config: PromptModeConfig,
   mode: SystemPromptMode,
 ): string => {
-  const prompt = buildPromptForMode(config, mode);
-  const notes = buildProviderNotes(config.providerId);
-  return prompt && notes ? `${prompt}\n\n---\n\n${notes}` : prompt;
+  return buildPromptForMode(config, mode);
 };

@@ -636,6 +636,13 @@ export const useToolExecution = ({
                   finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
                 }
 
+                const { buildUnparsedSegmentsWarning } =
+                  await import("../../utils/responseValidation");
+                const unparsedWarning = buildUnparsedSegmentsWarning(parsed);
+                if (unparsedWarning) {
+                  finalContent = `${finalContent}\n\n${unparsedWarning}`;
+                }
+
                 finalContent = limitGuard(finalContent);
 
                 try {

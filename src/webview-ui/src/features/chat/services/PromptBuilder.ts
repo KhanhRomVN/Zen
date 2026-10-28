@@ -65,7 +65,6 @@ export class PromptBuilder {
         diagnosticEnabled,
         antiSystemPromptInjection,
         toolFormat,
-        providerId,
       );
     }
 
@@ -73,12 +72,15 @@ export class PromptBuilder {
     // dưới heading "# Memory". Chỉ inject ở lượt đầu (isReq1) — các lượt sau
     // conversation history đã mang theo system prompt ban đầu.
     // Bỏ qua khi provider có anti-injection flag (dùng claude-system-prompt riêng).
-    if (isReq1 && memoryEnabled && !antiSystemPromptInjection) {
+    const isNoPrompt =
+      promptLengthMode === "none" && !antiSystemPromptInjection;
+
+    if (isReq1 && memoryEnabled && !antiSystemPromptInjection && !isNoPrompt) {
       const memorySection = await this.buildMemorySection();
       systemPrompt = `${systemPrompt}${memorySection}`;
     }
 
-    if (isReq1 && systemPrompt && !antiSystemPromptInjection) {
+    if (isReq1 && systemPrompt && !antiSystemPromptInjection && !isNoPrompt) {
       const agentsMdContent = await extensionService.getAgentsMdSnapshot();
       systemPrompt = `${systemPrompt}${buildAgentsMdSection(agentsMdContent)}`;
     }
@@ -126,7 +128,6 @@ export class PromptBuilder {
     diagnosticEnabled?: boolean,
     antiSystemPromptInjection?: boolean,
     toolFormat?: 'xml' | 'json',
-    providerId?: string,
   ): Promise<string> {
     let systemInfo = {
       os: "Unknown OS",
@@ -165,6 +166,8 @@ export class PromptBuilder {
       return `${claudePrompt}${skillsSection}`;
     }
 
+    if (promptLengthMode === "none") return "";
+
     const mode: SystemPromptMode = systemPromptMode || "balanced";
 
     // Use combinePromptsForMode to support simple/medium/promax modes.
@@ -176,7 +179,6 @@ export class PromptBuilder {
         promptLengthMode: promptLengthMode || "long",
         diagnosticEnabled: diagnosticEnabled ?? true,
         toolFormat: toolFormat ?? 'xml',
-        providerId,
       },
       mode,
     );

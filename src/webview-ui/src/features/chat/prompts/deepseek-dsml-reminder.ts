@@ -1,0 +1,2 @@
+export const DEEPSEEK_DSML_REMINDER = `# DEEPSEEK DSML NOTICE
+Your previous response used DSML tags (<｜DSML｜calls>, <｜DSML｜invoke>, <｜DSML｜parameter>). DSML is NOT a supported tool-call syntax. Never use it. Use only the tool call format below.`;

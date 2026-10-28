@@ -1,4 +1,3 @@
-// src/webview-ui/src/features/chat/prompts/constraints.ts
 import type { SystemPromptMode } from "./mode-config";
 import { MODE_BEHAVIORS, MAX_READ_LINES_PER_TURN } from "./mode-config";
 

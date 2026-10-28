@@ -63,6 +63,10 @@ module.exports = {
         ],
       },
       {
+        test: /\.txt$/,
+        type: "asset/source",
+      },
+      {
         test: /\.svg$/,
         use: ["@svgr/webpack"],
       },

@@ -14,26 +14,10 @@ export interface PromptModeConfig {
   language: string;
   systemInfo: SystemInfo;
   promptLengthMode?: PromptLengthMode;
-  /** Khi false, thêm constraint LSP-DIAGNOSTICS-FALLBACK vào system prompt */
   diagnosticEnabled?: boolean;
-  /** Định dạng tool calls: 'xml' (mặc định) hoặc 'json' */
   toolFormat?: "xml" | "json";
-  /** Provider ID của model đang dùng — dùng để thêm ghi chú riêng theo provider */
-  providerId?: string;
 }
 
-/**
- * Section ordering rule (see note below on caching): content that is
- * 100% identical across every request — TOOL_VALIDATION, TOOLS_REFERENCE,
- * and the EXAMPLE block — none of these read `mode`, `language`, or
- * `systemInfo` beyond the small, enumerable mode switch in buildExample —
- * comes FIRST, forming a stable prefix that provider-side prompt caching
- * can reuse turn after turn and across users/modes. Content that varies by
- * mode/language (identity, workflow, constraints) comes next, and the most
- * volatile block — system info, which can change mid-session (cwd, shell) —
- * goes LAST, so its churn never invalidates the cache of everything before
- * it.
- */
 export function buildPromptForMode(
   config: PromptModeConfig,
   mode: SystemPromptMode,

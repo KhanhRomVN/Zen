@@ -1,6 +1,29 @@
 import { Message } from "../types/message";
 import { calculateTokens, logChatToWorkspace } from "./ConversationService";
 import { streamingPreviewStore } from "../stores/streamingPreviewStore";
+import mockResponse from "../__mock__/mock-response.txt";
+
+const MOCK_CHUNK_SIZE = 40;
+
+const createMockResponse = (text: string): Response => {
+  const encoder = new TextEncoder();
+  let offset = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (offset >= text.length) {
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+        return;
+      }
+      const content = text.slice(offset, offset + MOCK_CHUNK_SIZE);
+      offset += MOCK_CHUNK_SIZE;
+      controller.enqueue(
+        encoder.encode(`data: ${JSON.stringify({ content })}\n\n`),
+      );
+    },
+  });
+  return new Response(stream, { status: 200 });
+};
 
 export interface StreamConfig {
   apiUrl: string;
@@ -35,6 +58,10 @@ export interface StreamCallbacks {
 }
 
 export class StreamingService {
+  static isMockActive(): boolean {
+    return mockResponse.trim().length > 0;
+  }
+
   static async streamChat(
     config: StreamConfig,
     callbacks: StreamCallbacks,
@@ -72,12 +99,14 @@ export class StreamingService {
         : {}),
     };
 
-    const response = await fetch(`${config.apiUrl}/v1/chat/accounts/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: config.abortSignal,
-    });
+    const response = mockResponse.trim()
+      ? createMockResponse(mockResponse)
+      : await fetch(`${config.apiUrl}/v1/chat/accounts/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: config.abortSignal,
+        });
 
     if (!response.ok) {
       let errorDetail = `API Error: ${response.status}`;
