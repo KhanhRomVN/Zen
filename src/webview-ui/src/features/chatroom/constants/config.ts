@@ -23,6 +23,8 @@ export const CHAT_GROUP_ID = "zen_general_public"; // ASSUMED: ID mới vì "zen
 
 export const PROFILE_STORAGE_KEY = "zen_chatroom_profile";
 
+export const PRESENCE_ID_KEY = "zen_presence_id";
+
 export const CHAT_ROOM: ChatRoomInfo = {
   id: CHAT_GROUP_ID,
   name: "general",

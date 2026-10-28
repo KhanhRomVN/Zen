@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { extensionService } from "../../../services/ExtensionService";
-import { PROFILE_STORAGE_KEY } from "../constants/config";
+import { PRESENCE_ID_KEY, PROFILE_STORAGE_KEY } from "../constants/config";
 import type { ChatProfile } from "../types";
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -63,8 +63,14 @@ export const useChatProfile = () => {
   // ── Callbacks ──
   const saveProfile = useCallback(
     async (input: ChatProfileInput) => {
+      const presenceId = (
+        await extensionService
+          .getStorage()
+          .get(PRESENCE_ID_KEY)
+          .catch(() => null)
+      )?.value;
       const next: ChatProfile = {
-        userId: profile?.userId ?? `zen-${uuidv4()}`,
+        userId: profile?.userId ?? presenceId ?? `zen-${uuidv4()}`,
         name: input.name,
         country: input.country,
         avatar: input.avatar,

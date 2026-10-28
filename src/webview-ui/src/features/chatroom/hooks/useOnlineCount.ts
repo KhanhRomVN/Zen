@@ -14,7 +14,13 @@
 
 // ─── Imports ────────────────────────────────────────────────────────────
 import { useEffect, useState } from "react";
-import { PRESENCE_ENDPOINT } from "../constants/config";
+import { v4 as uuidv4 } from "uuid";
+import { extensionService } from "../../../services/ExtensionService";
+import {
+  PRESENCE_ENDPOINT,
+  PRESENCE_ID_KEY,
+  PROFILE_STORAGE_KEY,
+} from "../constants/config";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 type Listener = (count: number | null) => void;
@@ -43,8 +49,28 @@ const clearTimers = () => {
   reconnectTimer = null;
 };
 
-const connect = () => {
-  const ws = new WebSocket(PRESENCE_ENDPOINT);
+const getPresenceId = async (): Promise<string> => {
+  const storage = extensionService.getStorage();
+  try {
+    const profileRaw = await storage.get(PROFILE_STORAGE_KEY);
+    const userId = profileRaw ? JSON.parse(profileRaw.value)?.userId : null;
+    if (userId) return userId;
+    const saved = await storage.get(PRESENCE_ID_KEY);
+    if (saved?.value) return saved.value;
+    const id = `zen-${uuidv4()}`;
+    await storage.set(PRESENCE_ID_KEY, id);
+    return id;
+  } catch {
+    return `zen-${uuidv4()}`;
+  }
+};
+
+const connect = async () => {
+  const uid = await getPresenceId();
+  if (listeners.size === 0 || socket) return;
+  const ws = new WebSocket(
+    `${PRESENCE_ENDPOINT}?uid=${encodeURIComponent(uid)}`,
+  );
   socket = ws;
 
   ws.onopen = () => {

@@ -19,7 +19,12 @@ export class PresenceRoom {
   }
 
   count(exclude) {
-    return this.state.getWebSockets().filter((ws) => ws !== exclude).length;
+    const ids = new Set();
+    for (const ws of this.state.getWebSockets()) {
+      if (ws === exclude) continue;
+      ids.add(ws.deserializeAttachment()?.uid ?? crypto.randomUUID());
+    }
+    return ids.size;
   }
 
   broadcast(exclude) {
@@ -36,8 +41,11 @@ export class PresenceRoom {
     if (request.headers.get("Upgrade") !== "websocket") {
       return json({ online: this.count() });
     }
+    const uid =
+      new URL(request.url).searchParams.get("uid") || crypto.randomUUID();
     const [client, server] = Object.values(new WebSocketPair());
     this.state.acceptWebSocket(server);
+    server.serializeAttachment({ uid });
     this.broadcast();
     return new Response(null, { status: 101, webSocket: client });
   }

@@ -26,6 +26,7 @@ Mỗi project có một folder riêng, hash MD5 từ workspace path (tính bởi
 ```
 ~/.khanhromvn-zen/
 ├── memory.md                                   ← memory toàn cục, dùng chung mọi project
+├── storage/                                    ← key-value storage dùng chung (zen_chatroom_profile, zen_presence_id, ...), mỗi key là file base64(key).json
 ├── projects/
 │   └── {projectHash}/                          ← hash MD5 của workspace path
 │       └── {conversationId}/                   ← folder riêng cho mỗi conversation

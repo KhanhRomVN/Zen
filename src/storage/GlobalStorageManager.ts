@@ -22,10 +22,18 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { TextDecoder, TextEncoder } from "util";
 
+// ── Services ──
+import { PathService } from "../services/PathService";
+
 // ─── Class ──────────────────────────────────────────────────────────────
 export class GlobalStorageManager {
   private readonly storageUri: vscode.Uri;
   private readonly storageDir: vscode.Uri;
+  private readonly sharedDir: vscode.Uri;
+  private static readonly SHARED_KEYS = new Set([
+    "zen_chatroom_profile",
+    "zen_presence_id",
+  ]);
   private _listCache: Map<string, { result: string[]; timestamp: number }> =
     new Map();
   private readonly LIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -36,6 +44,10 @@ export class GlobalStorageManager {
   constructor(private readonly context: vscode.ExtensionContext) {
     this.storageUri = context.globalStorageUri;
     this.storageDir = vscode.Uri.joinPath(this.storageUri, "storage");
+    this.sharedDir = vscode.Uri.joinPath(
+      vscode.Uri.file(PathService.getInstance().getContextRoot()),
+      "shared",
+    );
   }
 
   /**
@@ -44,6 +56,7 @@ export class GlobalStorageManager {
   async initialize(): Promise<void> {
     try {
       await vscode.workspace.fs.createDirectory(this.storageDir);
+      await vscode.workspace.fs.createDirectory(this.sharedDir);
     } catch (error) {
       // console.error("[Storage] Failed to create storage directory:", error);
     }
@@ -103,6 +116,9 @@ export class GlobalStorageManager {
   }
 
   private getKeyUri(key: string): vscode.Uri {
+    if (GlobalStorageManager.SHARED_KEYS.has(key)) {
+      return vscode.Uri.joinPath(this.sharedDir, `${key}.json`);
+    }
     return vscode.Uri.joinPath(this.storageDir, this.keyToFilename(key));
   }
 
