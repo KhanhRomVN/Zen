@@ -307,7 +307,16 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           }
         };
 
-        if (message.isError) {
+        // ─── Check for format retry state ───────────────────────────────────
+        if (message.isAwaitingFormatRetry) {
+          groups.push({
+            type: "warning" as any,
+            label: "FIXING FORMAT",
+            message:
+              "The previous response had format errors and is being corrected. Please wait...",
+            key: "format-retry-warning",
+          });
+        } else if (message.isError) {
           groups.push({
             type: "error",
             content: message.content,

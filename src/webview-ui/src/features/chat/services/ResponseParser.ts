@@ -33,6 +33,10 @@ export interface ParsedResponse {
   displayText: string;
   question: ContentBlock | null;
   onlyThinkingDetected?: boolean;
+  /** True if some content blocks could not be parsed (partial success). */
+  hasUnparsedContent?: boolean;
+  /** Raw unparsed blocks that failed to parse (for next-request retry). */
+  unparsedBlocks?: string[];
 }
 
 export interface ToolAction {
@@ -482,6 +486,81 @@ const parseAIResponseJson = (
     .filter((b: any) => b.type === "markdown")
     .map((b: any) => b.content)
     .join("\n\n");
+
+  // ─── DETECT UNPARSED BLOCKS (JSON format) ───────────────────────────────────
+  // Check for malformed JSON fences that couldn't be parsed
+  const unparsedBlocks: string[] = [];
+  const fencePattern = /```json\s*([\s\S]*?)```/g;
+  let fenceMatch: RegExpExecArray | null;
+
+  while ((fenceMatch = fencePattern.exec(contentAfterThinking)) !== null) {
+    const fullMatch = fenceMatch[0];
+    const jsonBody = fenceMatch[1].trim();
+    if (jsonBody.length === 0) continue;
+
+    try {
+      const parsed = JSON.parse(jsonBody);
+      // Check if this was actually processed (exists in actions or contentBlocks)
+      const wasProcessed =
+        result.actions.some((a) => a.rawXml === fullMatch) ||
+        result.contentBlocks.some((b) => {
+          if (b.type === "code" && b.content === jsonBody) return true;
+          if (b.type === "tool" && b.action?.rawXml === fullMatch) return true;
+          return false;
+        });
+
+      if (!wasProcessed && (parsed?.tool || parsed?.type)) {
+        // This looks like a tool/UI object but wasn't processed
+        unparsedBlocks.push(fullMatch);
+      }
+    } catch (parseErr) {
+      // Invalid JSON that wasn't caught by main parser
+      unparsedBlocks.push(fullMatch);
+    }
+  }
+
+  // Also check for DSML markers in JSON mode
+  const DSML_MARKER_RE = /<\/?[｜|]{1,2}DSML[｜|]{1,2}/;
+  if (DSML_MARKER_RE.test(contentAfterThinking)) {
+    // Find complete DSML blocks
+    const dsmlBlockRegex =
+      /<[｜|]{1,2}DSML[｜|]{1,2}[^>]*>([\s\S]*?)<\/[｜|]{1,2}DSML[｜|]{1,2}>/g;
+    let dsmlMatch;
+    while ((dsmlMatch = dsmlBlockRegex.exec(contentAfterThinking)) !== null) {
+      const block = dsmlMatch[0].trim();
+      if (!unparsedBlocks.includes(block)) {
+        unparsedBlocks.push(block);
+      }
+    }
+    
+    // Also find unclosed DSML opening tags
+    const unclosedDsmlRegex = /<[｜|]{1,2}DSML[｜|]{1,2}[^>]*>/g;
+    let unclosedMatch;
+    const closingPattern = /<\/[｜|]{1,2}DSML[｜|]{1,2}[^>]*>/;
+    
+    while ((unclosedMatch = unclosedDsmlRegex.exec(contentAfterThinking)) !== null) {
+      const openTag = unclosedMatch[0];
+      const startPos = unclosedMatch.index + openTag.length;
+      const restContent = contentAfterThinking.slice(startPos);
+      const hasClosing = closingPattern.test(restContent);
+      
+      if (!hasClosing) {
+        const nextTagOrFence = /```|<[a-zA-Z_][\w-]*(?:\s+[^>]*)?>/.exec(restContent);
+        const endPos = nextTagOrFence ? startPos + nextTagOrFence.index : contentAfterThinking.length;
+        const block = contentAfterThinking.slice(unclosedMatch.index, endPos).trim();
+        
+        if (block.length > 0 && !unparsedBlocks.includes(block)) {
+          unparsedBlocks.push(block);
+        }
+      }
+    }
+  }
+
+  if (unparsedBlocks.length > 0) {
+    result.hasUnparsedContent = true;
+    result.unparsedBlocks = unparsedBlocks;
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return result;
 };
@@ -1246,6 +1325,95 @@ export const parseAIResponse = (
       nonThinkingBlocks: nonThinkingBlocks.length,
     });
   }
+
+  // ─── DETECT UNPARSED BLOCKS (for partial execution + next-request) ──────────
+  // Scan for unclosed tags or malformed tool calls that weren't parsed.
+  // Strategy: Look for tool-like patterns (opening tags without closing) that didn't
+  // get picked up by the main parser loop.
+  const unparsedBlocks: string[] = [];
+  const toolNamesForDetection = getAllToolTypes();
+
+  // Check remaining scanStr (anything left after main loop) for unclosed tags
+  let detectionStr = scanStr;
+  for (const toolName of toolNamesForDetection) {
+    const openPattern = new RegExp(`<${toolName}(?:\\s+[^>]*)?>`, "gi");
+    let match;
+    while ((match = openPattern.exec(detectionStr)) !== null) {
+      const openTagFull = match[0];
+      const startPos = match.index + openTagFull.length;
+      const closePattern = `</${toolName}>`;
+      const closeIdx = detectionStr.indexOf(closePattern, startPos);
+
+      if (closeIdx === -1) {
+        // Unclosed tag found — extract up to next tag or end
+        const nextTagMatch = /<\w+(?:\s+[^>]*)?>/.exec(
+          detectionStr.slice(startPos),
+        );
+        const endPos = nextTagMatch
+          ? startPos + nextTagMatch.index
+          : detectionStr.length;
+        const block = detectionStr.slice(match.index, endPos).trim();
+        if (block.length > 0 && !unparsedBlocks.includes(block)) {
+          unparsedBlocks.push(block);
+        }
+      }
+    }
+  }
+
+  // Also check for DSML markers (DeepSeek format) that weren't converted
+  const DSML_MARKER_RE = /<\/?[｜|]{1,2}DSML[｜|]{1,2}/;
+  if (DSML_MARKER_RE.test(content)) {
+    // Find complete DSML blocks (with closing tags)
+    const dsmlBlockRegex =
+      /<[｜|]{1,2}DSML[｜|]{1,2}[^>]*>([\s\S]*?)<\/[｜|]{1,2}DSML[｜|]{1,2}>/g;
+    let dsmlMatch;
+    while ((dsmlMatch = dsmlBlockRegex.exec(content)) !== null) {
+      const block = dsmlMatch[0].trim();
+      if (!unparsedBlocks.includes(block)) {
+        unparsedBlocks.push(block);
+      }
+    }
+    
+    // Also find unclosed DSML opening tags (malformed)
+    const unclosedDsmlRegex = /<[｜|]{1,2}DSML[｜|]{1,2}[^>]*>/g;
+    let unclosedMatch;
+    const closingPattern = /<\/[｜|]{1,2}DSML[｜|]{1,2}[^>]*>/;
+    
+    while ((unclosedMatch = unclosedDsmlRegex.exec(content)) !== null) {
+      const openTag = unclosedMatch[0];
+      const startPos = unclosedMatch.index + openTag.length;
+      
+      // Check if there's a closing tag after this opening
+      const restContent = content.slice(startPos);
+      const hasClosing = closingPattern.test(restContent);
+      
+      if (!hasClosing) {
+        // Extract content up to next tag or end of string
+        const nextTagMatch = /<[a-zA-Z_][\w-]*(?:\s+[^>]*)?>/.exec(restContent);
+        const endPos = nextTagMatch ? startPos + nextTagMatch.index : content.length;
+        const block = content.slice(unclosedMatch.index, endPos).trim();
+        
+        if (block.length > 0 && !unparsedBlocks.includes(block)) {
+          unparsedBlocks.push(block);
+        }
+      }
+    }
+  }
+
+  if (unparsedBlocks.length > 0) {
+    result.hasUnparsedContent = true;
+    result.unparsedBlocks = unparsedBlocks;
+    console.warn("[Zen][Parser][XML] ⚠️ Unparsed blocks detected!", {
+      count: unparsedBlocks.length,
+      validActions: result.actions.length,
+      blocks: unparsedBlocks.map((b, i) => ({
+        index: i,
+        preview: b.slice(0, 100) + (b.length > 100 ? "..." : ""),
+        length: b.length,
+      })),
+    });
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return result;
 };

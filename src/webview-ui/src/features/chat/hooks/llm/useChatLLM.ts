@@ -25,11 +25,14 @@ import { PromptBuilder } from "../../services/PromptBuilder";
 import { StreamingService } from "../../services/StreamingService";
 import { processClaudeContent } from "../../services/ClaudeContentProcessor";
 import { processDeepseekContent } from "../../services/DeepseekDSMLParser";
+import {
+  FORMAT_REMINDER_XML,
+  FORMAT_REMINDER_JSON,
+} from "../../prompts/format-reminder";
 
+// DSML detection marker (still used in ResponseParser unparsed block detection)
 const DSML_ANY_MARKER_RE = /<\/?[｜|]{1,2}DSML[｜|]{1,2}/;
 
-const DSML_FALLBACK_NOTE =
-  "\n\n[System notice: your previous response used DeepSeek DSML tool-call markup, which could not be parsed. Do NOT use DSML. Re-emit every tool call strictly in the format defined in the system prompt.]";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
 
 interface ConversationOverrides {
@@ -158,6 +161,13 @@ export const useChatLLM = ({
   useEffect(() => {
     onTurnCompleteRef.current = onTurnComplete;
   }, [onTurnComplete]);
+
+  // Track pending format retry after partial parse
+  const pendingFormatRetryRef = useRef<{
+    unparsedBlocks: string[];
+    validActionCount: number;
+    formatReminder: string;
+  } | null>(null);
 
   const lastStreamEndRef = useRef(0);
 
@@ -465,12 +475,35 @@ export const useChatLLM = ({
         toolFormat: isAntiInjection ? "xml" : effectiveToolFormat,
       });
 
+      // ─── Check for pending format retry (partial parse) ────────────────────
+      // If this is a tool-result message and we have pending format retry,
+      // merge the format reminder into the content.
+      let finalContent = promptPayload;
+      if (skipFirstRequestLogic && pendingFormatRetryRef.current) {
+        const pending = pendingFormatRetryRef.current;
+        const unparsedSummary = `The following blocks from your previous response could not be parsed:\n\n${pending.unparsedBlocks.map((b: string, i: number) => `Block ${i + 1}:\n${b.slice(0, 200)}${b.length > 200 ? "..." : ""}`).join("\n\n")}\n\n`;
+
+        finalContent = `${promptPayload}\n\n${pending.formatReminder}\n\n${unparsedSummary}\nPrevious response had ${pending.validActionCount} valid tool calls (results above). Please re-emit ONLY the ${pending.unparsedBlocks.length} failed blocks above using the correct format.`;
+
+        console.log(
+          "[Zen][sendMessage] ✅ Merged tool-result + format-reminder",
+          {
+            toolResultLength: promptPayload.length,
+            unparsedBlocks: pending.unparsedBlocks.length,
+          },
+        );
+
+        // Clear pending state after merge
+        pendingFormatRetryRef.current = null;
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       const userMessage: Message = {
         id: `msg-${Date.now()}-${skipFirstRequestLogic ? "tool" : "user"}`,
         role: "user",
-        content: promptPayload,
+        content: finalContent,
         timestamp: Date.now(),
-        token_usage: calculateTokens(promptPayload),
+        token_usage: calculateTokens(finalContent),
         actionIds: actionIds,
         uiHidden: uiHidden,
         conversationId: backendConversationIdRef.current || undefined,
@@ -894,9 +927,9 @@ export const useChatLLM = ({
                   if (processed.convertedToolCount > 0) {
                     finalContent = processed.content;
                   }
-                  if (DSML_ANY_MARKER_RE.test(finalContent)) {
-                    dsmlParseFailed = true;
-                  }
+                  // DSML detection no longer triggers immediate retry —
+                  // unparsed DSML blocks will be caught by ResponseParser
+                  // and handled via next-request flow.
                 }
 
                 // Lưu vào ref để apply vào assistantMessage sau khi streamChat return
@@ -927,15 +960,7 @@ export const useChatLLM = ({
 
         try {
           streamResult = await runStream(payloadMessages);
-          if (dsmlParseFailed && !abortController.signal.aborted) {
-            dsmlParseFailed = false;
-            const retryMessages = payloadMessages.map((m, i) =>
-              i === payloadMessages.length - 1
-                ? { ...m, content: m.content + DSML_FALLBACK_NOTE }
-                : m,
-            );
-            streamResult = await runStream(retryMessages);
-          }
+          // DSML retry removed — now handled via next-request flow (safer, no race condition)
         } catch (error) {
           throw error;
         }
@@ -1034,12 +1059,14 @@ export const useChatLLM = ({
         let parsed: any = null;
         let hasParsingError = false;
 
+        // Define contentToParse outside try block so it's available in catch
+        const contentToParse =
+          assistantMessage.rawResponse || assistantMessage.content;
+        const currentToolFormat =
+          conversationOverridesRef.current?.toolFormat ?? "xml";
+
         try {
           // 🔧 FIX: Parse rawResponse (includes thinking) instead of content
-          const contentToParse =
-            assistantMessage.rawResponse || assistantMessage.content;
-          const currentToolFormat =
-            conversationOverridesRef.current?.toolFormat ?? "xml";
 
           parsed = parseAIResponse(contentToParse, currentToolFormat);
           toolSequence = parsed.contentBlocks
@@ -1143,12 +1170,16 @@ export const useChatLLM = ({
               ? parseError.message
               : "Unknown parsing error";
 
-          // Create error message with details
-          const errorContent = `Error: Failed to parse response\n\nDetails: ${errorDetails}\n\n**Note:** The response was received but could not be displayed due to malformed content. This usually happens when tool calls are missing closing tags.\n\nYou can try:\n- Regenerating the response\n- Asking the assistant to fix the issue`;
+          console.error("[Zen][sendMessage] ❌ Full parse error detected:", {
+            error: errorDetails,
+            contentLength: contentToParse.length,
+            contentPreview: contentToParse.substring(0, 200),
+            toolFormat: currentToolFormat,
+          });
 
-          // Update the assistant message to error state
-          assistantMessage.content = errorContent;
-          assistantMessage.isError = true;
+          // Mark message as awaiting format retry instead of error
+          assistantMessage.isAwaitingFormatRetry = true;
+          assistantMessage.unparsedContent = contentToParse;
 
           // 📊 Create parseDebugInfo for parse errors
           assistantMessage.parseDebugInfo = {
@@ -1163,14 +1194,14 @@ export const useChatLLM = ({
             },
           };
 
-          // Update messages array with error state
+          // Update messages array with retry flag
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessageId
                 ? {
                     ...m,
-                    content: errorContent,
-                    isError: true,
+                    isAwaitingFormatRetry: true,
+                    unparsedContent: contentToParse,
                     parseDebugInfo: assistantMessage.parseDebugInfo,
                   }
                 : m,
@@ -1205,6 +1236,67 @@ export const useChatLLM = ({
           false, // skipSave = false → update with parsed data (or error state)
           effectiveConversationOverrides,
         );
+
+        // ─── HANDLE PARSE ERRORS & PARTIAL PARSE (next-request) ─────────────────
+        // If parse completely failed OR partial parse with unparsed blocks,
+        // trigger next-request with format reminder instead of showing error.
+        if (hasParsingError) {
+          // Full parse error — send format reminder and ask to re-emit all tools
+          const currentToolFormat =
+            conversationOverridesRef.current?.toolFormat ?? "xml";
+          const formatReminder =
+            currentToolFormat === "json"
+              ? FORMAT_REMINDER_JSON
+              : FORMAT_REMINDER_XML;
+
+          const nextRequestContent = `${formatReminder}\n\nYour previous response could not be parsed. Please re-emit all tool calls using the correct format above.`;
+
+          console.error("[Zen][sendMessage] ❌ Full parse error → auto-retry", {
+            toolFormat: currentToolFormat,
+            contentLength: contentToParse.length,
+          });
+
+          // Trigger next-request (hidden user message + auto-send)
+          setTimeout(() => {
+            if (isProcessingRef.current) {
+              return;
+            }
+            sendMessage(
+              nextRequestContent,
+              undefined,
+              undefined,
+              undefined,
+              true, // skipFirstRequestLogic
+              undefined,
+              true, // uiHidden
+            );
+          }, 100);
+
+          return; // Stop here, don't trigger tool execution
+        }
+
+        if (!hasParsingError && parsed && parsed.hasUnparsedContent) {
+          // Execute valid actions first (will happen below in normal flow)
+          // After tool execution completes, onToolRequest callback should trigger next-request
+          // by checking parsed.hasUnparsedContent flag.
+          // Store unparsed blocks in assistantMessage for later retrieval
+          assistantMessage.unparsedContent =
+            parsed.unparsedBlocks?.join("\n\n---\n\n");
+
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    unparsedContent: assistantMessage.unparsedContent,
+                  }
+                : m,
+            ),
+          );
+
+          // Partial parse handling will be triggered after tool execution in onToolRequest
+        }
+        // ─────────────────────────────────────────────────────────────────────────
 
         // 🚨 DETECT ONLY-THINKING RESPONSE
         // If response has ONLY <thinking> block with no other content or actions,
@@ -1272,6 +1364,34 @@ export const useChatLLM = ({
               isAutoTrigger,
               TOOL_ACTION_TYPES.ACCEPT,
             );
+
+            // ─── Partial parse: store metadata for later merge ──────────────────
+            // Instead of immediate next-request, store metadata and wait for
+            // tool execution completion. The merged message (tool results +
+            // format reminder) will be sent via onTurnComplete callback.
+            if (parsed.hasUnparsedContent && parsed.unparsedBlocks) {
+              const currentToolFormat =
+                conversationOverridesRef.current?.toolFormat ?? "xml";
+              const formatReminder =
+                currentToolFormat === "json"
+                  ? FORMAT_REMINDER_JSON
+                  : FORMAT_REMINDER_XML;
+
+              pendingFormatRetryRef.current = {
+                unparsedBlocks: parsed.unparsedBlocks,
+                validActionCount: parsed.actions.length,
+                formatReminder,
+              };
+
+              console.warn(
+                "[Zen][sendMessage] ⚠️ Partial parse → will merge with tool results",
+                {
+                  validActions: parsed.actions.length,
+                  unparsedBlocks: parsed.unparsedBlocks.length,
+                },
+              );
+            }
+            // ─────────────────────────────────────────────────────────────────────
           } else {
             onTurnCompleteRef.current?.();
           }
