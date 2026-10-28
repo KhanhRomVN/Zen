@@ -1,0 +1,11 @@
+name = "zen-presence"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+[[durable_objects.bindings]]
+name = "PRESENCE"
+class_name = "PresenceRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PresenceRoom"]

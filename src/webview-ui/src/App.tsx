@@ -6,6 +6,7 @@ import SettingsPanel from "./features/setting";
 import WelcomeScreen from "./features/welcome/WelcomeScreen";
 import AccountPanel from "./features/account";
 import MarketplacePanel from "./features/marketplace";
+import ChatRoomPanel from "./features/chatroom";
 import "./styles/components/chat.css";
 import { ProjectProvider } from "./context/ProjectContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -46,6 +47,7 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showAccounts, setShowAccounts] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
+  const [showChatRoom, setShowChatRoom] = useState(false);
   const [currentChat, setCurrentChat] = useState<ChatSession | null>(null);
   const [homeInitialValue, setHomeInitialValue] = useState("");
 
@@ -112,7 +114,16 @@ const App: React.FC = () => {
           setShowAccounts(false);
           window.dispatchEvent(new CustomEvent("zen:panel-change"));
           break;
+        case "showChatRoom":
+          setShowChatRoom(true);
+          setShowHistory(false);
+          setShowSettings(false);
+          setShowAccounts(false);
+          setShowMarketplace(false);
+          window.dispatchEvent(new CustomEvent("zen:panel-change"));
+          break;
         case "newChat":
+          setShowChatRoom(false);
           setShowHistory(false);
           setShowSettings(false);
           setShowAccounts(false);
@@ -126,6 +137,18 @@ const App: React.FC = () => {
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [currentChat]);
+
+  useEffect(() => {
+    const openChatRoom = () => {
+      setShowChatRoom(true);
+      setShowHistory(false);
+      setShowSettings(false);
+      setShowAccounts(false);
+      setShowMarketplace(false);
+    };
+    window.addEventListener("zen:open-chatroom", openChatRoom);
+    return () => window.removeEventListener("zen:open-chatroom", openChatRoom);
+  }, []);
 
   const handleHomeSendMessage = useCallback(
     (
@@ -198,6 +221,25 @@ const App: React.FC = () => {
                   initialValue={homeInitialValue}
                   onOpenAccounts={() => setShowAccounts(true)}
                 />
+              )}
+              {showChatRoom && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    width: "100%",
+                    height: "100%",
+                    zIndex: 1000,
+                    display: "flex",
+                    flexDirection: "column",
+                    backgroundColor: "var(--secondary-bg)",
+                  }}
+                >
+                  <ChatRoomPanel onClose={() => setShowChatRoom(false)} />
+                </div>
               )}
               <HistoryPanel
                 isOpen={showHistory}

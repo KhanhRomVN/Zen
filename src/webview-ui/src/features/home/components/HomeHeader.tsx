@@ -12,6 +12,7 @@
 
 // ─── Imports ────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from "react";
+import OnlineBadge from "../../chatroom/components/OnlineBadge";
 
 // ─── Constants ──────────────────────────────────────────────────────────
 const SLOGANS = [
@@ -44,7 +45,8 @@ const HomeHeader: React.FC<HomeHeaderProps> = ({ imagesUri }) => {
 
   // ── Render ──
   return (
-    <div className="zen-home-header-inner">
+    <div className="zen-home-header-inner" style={{ position: "relative" }}>
+      <OnlineBadge style={{ position: "absolute", top: 0, right: 0 }} />
       <style>{`
         .zen-home-header-inner { 
           display: flex; 

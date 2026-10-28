@@ -31,6 +31,7 @@ import {
 import { buildSkillPreview } from "./utils/skillPreview";
 import type { SkillSummary } from "./types/skill.types";
 import { extensionService } from "../../services/ExtensionService";
+import OnlineBadge from "../chatroom/components/OnlineBadge";
 
 /* ==================================================================
  * SkillSearchBar — thanh tìm kiếm skill (style đồng bộ với searchbar
@@ -380,7 +381,14 @@ const MarketplacePanel: React.FC<MarketplacePanelProps> = ({
         >
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div>
-              <div style={{ marginBottom: "3px" }}>
+              <div
+                style={{
+                  marginBottom: "3px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
                 <span
                   style={{
                     fontWeight: 700,
@@ -391,6 +399,7 @@ const MarketplacePanel: React.FC<MarketplacePanelProps> = ({
                 >
                   Marketplace
                 </span>
+                <OnlineBadge />
               </div>
               <p
                 style={{

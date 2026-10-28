@@ -77,3 +77,6 @@ bypass_test.log
 temp
 .vercel
 .env*
+.dev.vars
+worker/node_modules
+tests

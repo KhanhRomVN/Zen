@@ -20,6 +20,7 @@ import React, { useCallback, useState } from "react";
 import { FolderOpen, Loader2, Search } from "lucide-react";
 
 // ── Components ──
+import OnlineBadge from "../chatroom/components/OnlineBadge";
 import HistoryCard from "./components/HistoryCard";
 import ConfirmClearHistoryDrawer from "./components/ConfirmClearHistoryDrawer";
 
@@ -136,7 +137,14 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
         >
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div>
-              <div style={{ marginBottom: "3px" }}>
+              <div
+                style={{
+                  marginBottom: "3px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
                 <span
                   style={{
                     fontWeight: 700,
@@ -147,6 +155,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 >
                   History
                 </span>
+                <OnlineBadge />
               </div>
               <p
                 style={{

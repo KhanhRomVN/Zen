@@ -14,6 +14,7 @@
     "@codemirror/search": "file:../../media/@codemirror/search",
     "@codemirror/state": "file:../../media/@codemirror/state",
     "@codemirror/view": "file:../../media/@codemirror/view",
+    "@tencentcloud/chat": "^3.6.7",
     "@vscode/webview-ui-toolkit": "^1.4.0",
     "clsx": "^2.1.1",
     "codemirror": "file:../../media/codemirror",

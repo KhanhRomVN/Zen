@@ -56,6 +56,13 @@ export async function activate(extContext: vscode.ExtensionContext) {
     provider.postMessageToWebview({ command: "showHistory" });
   });
 
+  const chatRoomCommand = vscode.commands.registerCommand(
+    "zen.chatRoom",
+    () => {
+      provider.postMessageToWebview({ command: "showChatRoom" });
+    },
+  );
+
   const accountsCommand = vscode.commands.registerCommand(
     "zen.openAccounts",
     () => {

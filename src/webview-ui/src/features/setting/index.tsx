@@ -13,6 +13,7 @@ import GeneralSettings from "./components/general/General";
 import FeatureSettings from "./components/feature/Feature";
 import AboutSettings from "./components/about/About";
 import { SETTINGS_CSS, accentVars } from "./components/shared/ui";
+import OnlineBadge from "../chatroom/components/OnlineBadge";
 
 const TABS: Array<{
   id: string;
@@ -74,6 +75,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               }}
             >
               Settings
+              <OnlineBadge style={{ marginLeft: 8, verticalAlign: "middle" }} />
             </span>
             <span
               style={{

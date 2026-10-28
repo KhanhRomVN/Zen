@@ -24,7 +24,7 @@ import { useMessageHandlers } from "./useMessageHandlers";
 import { PromptBuilder } from "../../services/PromptBuilder";
 import { StreamingService } from "../../services/StreamingService";
 import { processClaudeContent } from "../../services/ClaudeContentProcessor";
-import { ClaudeRawLogger } from "../../services/ClaudeRawLogger";
+import { processDeepseekContent } from "../../services/DeepseekDSMLParser";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
 
 interface ConversationOverrides {
@@ -878,6 +878,16 @@ export const useChatLLM = ({
                 if (antiSystemPromptInjection) {
                   const processed = processClaudeContent(content, rootPath);
                   finalContent = processed.content;
+                } else if (
+                  (finalModel?.providerId ?? "").toLowerCase() === "deepseek"
+                ) {
+                  const processed = processDeepseekContent(
+                    content,
+                    conversationOverridesRef.current?.toolFormat ?? "xml",
+                  );
+                  if (processed.convertedToolCount > 0) {
+                    finalContent = processed.content;
+                  }
                 }
 
                 // Lưu vào ref để apply vào assistantMessage sau khi streamChat return

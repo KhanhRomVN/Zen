@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 
 // ── Components ──
+import OnlineBadge from "../chatroom/components/OnlineBadge";
 import AccountCard from "./components/AccountCard";
 import AddAccountDrawer from "./components/AddAccountDrawer";
 import EditAccountDrawer from "./components/EditAccountDrawer";
@@ -496,6 +497,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 >
                   Accounts
                 </span>
+                <OnlineBadge />
               </div>
               <p
                 style={{

@@ -22,6 +22,9 @@ import React from "react";
 // ── Hooks ─
 import { useAccountStats } from "../../../hooks/useAccountStats";
 
+// ── Components ─
+import OnlineBadge from "../../chatroom/components/OnlineBadge";
+
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface ChatHeaderProps {
   displayedModel: any;
@@ -944,6 +947,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           >
             {displayTitle}
           </span>
+
+          <OnlineBadge />
 
           {/* Search */}
           <SqButton
