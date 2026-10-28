@@ -18,6 +18,8 @@ export interface PromptModeConfig {
   diagnosticEnabled?: boolean;
   /** Định dạng tool calls: 'xml' (mặc định) hoặc 'json' */
   toolFormat?: "xml" | "json";
+  /** Provider ID của model đang dùng — dùng để thêm ghi chú riêng theo provider */
+  providerId?: string;
 }
 
 /**

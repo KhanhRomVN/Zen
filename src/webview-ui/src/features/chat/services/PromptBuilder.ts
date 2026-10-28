@@ -65,6 +65,7 @@ export class PromptBuilder {
         diagnosticEnabled,
         antiSystemPromptInjection,
         toolFormat,
+        providerId,
       );
     }
 
@@ -125,6 +126,7 @@ export class PromptBuilder {
     diagnosticEnabled?: boolean,
     antiSystemPromptInjection?: boolean,
     toolFormat?: 'xml' | 'json',
+    providerId?: string,
   ): Promise<string> {
     let systemInfo = {
       os: "Unknown OS",
@@ -174,6 +176,7 @@ export class PromptBuilder {
         promptLengthMode: promptLengthMode || "long",
         diagnosticEnabled: diagnosticEnabled ?? true,
         toolFormat: toolFormat ?? 'xml',
+        providerId,
       },
       mode,
     );

@@ -143,6 +143,9 @@ export const useChatRoom = (profile: ChatProfile) => {
     };
 
     const loadHistory = async (client: ChatClient) => {
+      try {
+        await client.getConversationProfile(`GROUP${CHAT_GROUP_ID}`);
+      } catch {}
       const history: ImMessage[] = [];
       let nextReqMessageID: string | undefined;
       for (let page = 0; page < HISTORY_MAX_PAGES; page++) {

@@ -25,6 +25,11 @@ import { PromptBuilder } from "../../services/PromptBuilder";
 import { StreamingService } from "../../services/StreamingService";
 import { processClaudeContent } from "../../services/ClaudeContentProcessor";
 import { processDeepseekContent } from "../../services/DeepseekDSMLParser";
+
+const DSML_ANY_MARKER_RE = /<\/?[｜|]{1,2}DSML[｜|]{1,2}/;
+
+const DSML_FALLBACK_NOTE =
+  "\n\n[System notice: your previous response used DeepSeek DSML tool-call markup, which could not be parsed. Do NOT use DSML. Re-emit every tool call strictly in the format defined in the system prompt.]";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
 
 interface ConversationOverrides {
@@ -793,17 +798,18 @@ export const useChatLLM = ({
         // Ref để bridge finalContent từ onContent callback sang sau khi streamChat return
         // (assistantMessage chưa tồn tại khi callback được định nghĩa)
         const claudeParsedContentRef = { value: "" };
+        let dsmlParseFailed = false;
 
         let streamResult: Awaited<
           ReturnType<typeof StreamingService.streamChat>
         >;
-        try {
-          streamResult = await StreamingService.streamChat(
+        const runStream = (messagesToSend: typeof payloadMessages) =>
+          StreamingService.streamChat(
             {
               apiUrl,
               model: finalModel,
               account: finalAccount,
-              messages: payloadMessages,
+              messages: messagesToSend,
               conversationId: convIdToSend,
               parentMessageId: effectiveParentMessageId,
               refFileIds: ref_file_ids,
@@ -888,6 +894,9 @@ export const useChatLLM = ({
                   if (processed.convertedToolCount > 0) {
                     finalContent = processed.content;
                   }
+                  if (DSML_ANY_MARKER_RE.test(finalContent)) {
+                    dsmlParseFailed = true;
+                  }
                 }
 
                 // Lưu vào ref để apply vào assistantMessage sau khi streamChat return
@@ -915,6 +924,18 @@ export const useChatLLM = ({
               },
             },
           );
+
+        try {
+          streamResult = await runStream(payloadMessages);
+          if (dsmlParseFailed && !abortController.signal.aborted) {
+            dsmlParseFailed = false;
+            const retryMessages = payloadMessages.map((m, i) =>
+              i === payloadMessages.length - 1
+                ? { ...m, content: m.content + DSML_FALLBACK_NOTE }
+                : m,
+            );
+            streamResult = await runStream(retryMessages);
+          }
         } catch (error) {
           throw error;
         }
